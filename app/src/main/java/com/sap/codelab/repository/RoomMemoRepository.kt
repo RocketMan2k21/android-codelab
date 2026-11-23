@@ -25,6 +25,10 @@ internal object RoomMemoRepository : IMemoRepository {
     override fun saveMemo(memo: Memo): Long = database.getMemoDao().insert(memo)
 
     @WorkerThread
+    override fun setRegistered(memoId: Long, isRegistered: Boolean) =
+        database.getMemoDao().setRegistered(memoId, isRegistered)
+
+    @WorkerThread
     override fun getOpen(): List<Memo> = database.getMemoDao().getOpen()
 
     @WorkerThread

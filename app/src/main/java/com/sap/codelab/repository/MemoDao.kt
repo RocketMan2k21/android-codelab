@@ -33,6 +33,9 @@ internal interface MemoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(memo: Memo): Long
 
+    @Query("UPDATE memo SET isRegistered = :isRegistered WHERE id = :memoId")
+    fun setRegistered(memoId: Long, isRegistered: Boolean)
+
     /**
      * @return the memo whose id matches the given id.
      */

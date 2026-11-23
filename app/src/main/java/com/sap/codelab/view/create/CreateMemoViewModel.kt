@@ -56,7 +56,6 @@ internal class CreateMemoViewModel(
         reminderDate = 0,
         reminderLatitude = 0.0,
         reminderLongitude = 0.0,
-        createdAt = 0
     )
 
     /** Captures the draft for this save attempt and starts the reminder checks if it has a location. */
@@ -66,7 +65,6 @@ internal class CreateMemoViewModel(
             putString("title", memo.title)
             putString("description", memo.description)
             putInt("priority", memo.priority)
-            putLong("createdAt", memo.createdAt)
             putDouble("latitude", memo.reminderLatitude)
             putDouble("longitude", memo.reminderLongitude)
         }
@@ -187,7 +185,6 @@ internal class CreateMemoViewModel(
             reminderDate = 0,
             reminderLatitude = draft.getDouble("latitude"),
             reminderLongitude = draft.getDouble("longitude"),
-            createdAt = draft.getLong("createdAt")
         )
         _saveState.value = SaveState.SAVING
         viewModelScope.launch {
@@ -224,7 +221,6 @@ internal class CreateMemoViewModel(
             priority = priority,
             reminderLatitude = location?.lat ?: 0.0,
             reminderLongitude = location?.lon ?: 0.0,
-            createdAt = System.currentTimeMillis()
         )
     }
 

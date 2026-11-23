@@ -75,7 +75,7 @@ class CreateMemoPermissionTest {
         model.onPermissionResult(SaveState.OPENING_SETTINGS, allPermissions)
 
         model.awaitSave(SaveState.SAVED_WITH_REMINDER)
-        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+        fixture.assertRegisteredMemo()
     }
 
     @Test
@@ -95,7 +95,7 @@ class CreateMemoPermissionTest {
         model.onPermissionResult(SaveState.REQUESTING_BACKGROUND, allPermissions)
 
         model.awaitSave(SaveState.SAVED_WITH_REMINDER)
-        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+        fixture.assertRegisteredMemo()
     }
 
     @Test
@@ -174,7 +174,7 @@ class CreateMemoPermissionTest {
         model.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, allPermissions)
 
         model.awaitSave(SaveState.SAVED_WITH_REMINDER)
-        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+        fixture.assertRegisteredMemo()
     }
 
     @Test
@@ -232,7 +232,7 @@ class CreateMemoPermissionTest {
         model.continueFrom(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, SaveState.OPENING_CHANNEL_NOTIFICATIONS)
         model.onPermissionResult(SaveState.OPENING_CHANNEL_NOTIFICATIONS, allPermissions)
         model.awaitSave(SaveState.SAVED_WITH_REMINDER)
-        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+        fixture.assertRegisteredMemo()
     }
 
     private fun CreateMemoViewModel.continueFrom(rationale: SaveState, launch: SaveState) {
@@ -260,6 +260,11 @@ class CreateMemoPermissionTest {
                 return MEMO_ID
             }
 
+            override fun setRegistered(memoId: Long, isRegistered: Boolean) {
+                assertEquals(MEMO_ID, memoId)
+                savedMemos[0] = savedMemos.single().copy(isRegistered = isRegistered)
+            }
+
             override fun getAll(): List<Memo> = error("Unexpected query")
             override fun getOpen(): List<Memo> = error("Unexpected query")
             override fun getMemoById(id: Long): Memo = error("Unexpected query")
@@ -272,6 +277,12 @@ class CreateMemoPermissionTest {
             }
 
             override suspend fun remove(reminderId: String) = error("Unexpected removal")
+        }
+
+        fun assertRegisteredMemo() {
+            val savedMemo = savedMemos.single()
+            assertTrue(savedMemo.isRegistered)
+            assertEquals(savedMemo.copy(id = MEMO_ID, isRegistered = false), registeredMemos.single())
         }
 
         fun newViewModel(savedState: SavedStateHandle = state) =

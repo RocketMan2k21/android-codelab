@@ -12,6 +12,8 @@ internal interface IMemoRepository {
      */
     fun saveMemo(memo: Memo): Long
 
+    fun setRegistered(memoId: Long, isRegistered: Boolean)
+
     /**
      * @return all memos currently in the database.
      */

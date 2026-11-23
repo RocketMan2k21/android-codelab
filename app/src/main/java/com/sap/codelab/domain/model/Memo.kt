@@ -24,10 +24,8 @@ internal data class Memo(
         var reminderLongitude: Double,
         @ColumnInfo(name = "priority")
         val priority: Int = 0,
-        @ColumnInfo(name = "triggeredAt")
-        val triggeredAt: Long? = null,
-        @ColumnInfo(name = "createdAt")
-        val createdAt: Long,
         @ColumnInfo(name = "isDone")
-        var isDone: Boolean = false
+        var isDone: Boolean = false,
+        @ColumnInfo(defaultValue = "0")
+        val isRegistered: Boolean = false
 )
