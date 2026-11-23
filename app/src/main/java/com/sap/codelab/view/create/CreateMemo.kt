@@ -126,11 +126,9 @@ internal class CreateMemo : AppCompatActivity() {
                             val message = when (state) {
                                 SaveState.SAVED_WITH_REMINDER -> R.string.memo_saved_with_reminder
                                 SaveState.SAVED_WITHOUT_REMINDER -> R.string.memo_saved_without_reminder
-                                else -> null
+                                else -> R.string.memo_saved
                             }
-                            if (message != null) {
-                                Toast.makeText(this@CreateMemo, message, Toast.LENGTH_LONG).show()
-                            }
+                            Toast.makeText(this@CreateMemo, message, Toast.LENGTH_LONG).show()
                             setResult(RESULT_OK)
                             finish()
                         }

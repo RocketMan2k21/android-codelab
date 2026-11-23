@@ -9,6 +9,7 @@
     <string name="memo_title_empty_error">Please provide a title for this memo</string>
     <string name="memo_text_empty_error">Please provide a memo description</string>
     <string name="memo_save_error">Couldn’t save the memo. Try again.</string>
+    <string name="memo_saved">Memo saved.</string>
     <string name="memo_saved_with_reminder">Memo saved. Location monitoring is active.</string>
     <string name="memo_saved_without_reminder">Memo saved. Location monitoring is not active.</string>
     <string name="background_location_settings_title">Background location disabled</string>

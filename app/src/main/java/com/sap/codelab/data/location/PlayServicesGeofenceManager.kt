@@ -11,7 +11,6 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
-import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.tasks.await
 
@@ -53,10 +52,9 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
             throw SecurityException("Background location permission is required to register a geofence.")
         }
 
-        val location = Location.fromE7(memo.reminderLatitude, memo.reminderLongitude)
         val geofence = Geofence.Builder()
             .setRequestId(memo.id.toString())
-            .setCircularRegion(location.lat, location.lon, GEOFENCE_RADIUS_METERS)
+            .setCircularRegion(memo.reminderLatitude, memo.reminderLongitude, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL) // Using dwell with custom delay to get rid of spam
             .setLoiteringDelay(DWELL_DELAY_MILLIS)

@@ -130,15 +130,15 @@ class CreateMemoPermissionTest {
     fun decliningRationalePreservesTheSelectedLocation() = onMain {
         val fixture = Fixture(Build.VERSION_CODES.R)
         val model = fixture.newViewModel()
-        val location = Location(42.0, 19.0)
+        val location = Location(42.123456789, -19.123456789)
         model.selectLocation(location)
         model.updateMemo("Title", "Description", 1)
         model.saveMemo(preciseOnly)
         model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.SKIP)
 
         model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
-        assertEquals(location.latitudeE7, fixture.savedMemos.single().reminderLatitude)
-        assertEquals(location.longitudeE7, fixture.savedMemos.single().reminderLongitude)
+        assertEquals(location.lat, fixture.savedMemos.single().reminderLatitude, 0.0)
+        assertEquals(location.lon, fixture.savedMemos.single().reminderLongitude, 0.0)
         assertTrue(fixture.registeredMemos.isEmpty())
     }
 

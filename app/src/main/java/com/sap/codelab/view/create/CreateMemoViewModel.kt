@@ -54,8 +54,8 @@ internal class CreateMemoViewModel(
         title = String.empty(),
         description = String.empty(),
         reminderDate = 0,
-        reminderLatitude = 0,
-        reminderLongitude = 0,
+        reminderLatitude = 0.0,
+        reminderLongitude = 0.0,
         createdAt = 0
     )
 
@@ -67,8 +67,8 @@ internal class CreateMemoViewModel(
             putString("description", memo.description)
             putInt("priority", memo.priority)
             putLong("createdAt", memo.createdAt)
-            putLong("latitude", memo.reminderLatitude)
-            putLong("longitude", memo.reminderLongitude)
+            putDouble("latitude", memo.reminderLatitude)
+            putDouble("longitude", memo.reminderLongitude)
         }
         if (selectedLocation == null) {
             persistMemo(ReminderRequest.NONE)
@@ -185,8 +185,8 @@ internal class CreateMemoViewModel(
             description = draft.getString("description").orEmpty(),
             priority = draft.getInt("priority"),
             reminderDate = 0,
-            reminderLatitude = draft.getLong("latitude"),
-            reminderLongitude = draft.getLong("longitude"),
+            reminderLatitude = draft.getDouble("latitude"),
+            reminderLongitude = draft.getDouble("longitude"),
             createdAt = draft.getLong("createdAt")
         )
         _saveState.value = SaveState.SAVING
@@ -222,8 +222,8 @@ internal class CreateMemoViewModel(
             title = title,
             description = description,
             priority = priority,
-            reminderLatitude = location?.latitudeE7 ?: 0,
-            reminderLongitude = location?.longitudeE7 ?: 0,
+            reminderLatitude = location?.lat ?: 0.0,
+            reminderLongitude = location?.lon ?: 0.0,
             createdAt = System.currentTimeMillis()
         )
     }
