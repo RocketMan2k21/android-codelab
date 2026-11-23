@@ -2,7 +2,7 @@ package com.sap.codelab.repository
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import com.sap.codelab.model.Memo
+import com.sap.codelab.domain.model.Memo
 
 /**
  * That database that is used to store information.

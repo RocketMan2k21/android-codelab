@@ -2,8 +2,8 @@ package com.sap.codelab.view.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sap.codelab.model.Memo
-import com.sap.codelab.repository.Repository
+import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.repository.RoomMemoRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +22,7 @@ internal class ViewMemoViewModel : ViewModel() {
      */
     fun loadMemo(memoId: Long) {
         viewModelScope.launch(Dispatchers.Default) {
-            _memo.value = Repository.getMemoById(memoId)
+            _memo.value = RoomMemoRepository.getMemoById(memoId)
         }
     }
 }

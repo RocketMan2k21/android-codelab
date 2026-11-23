@@ -8,6 +8,6 @@ import android.app.Application
 internal class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        Repository.initialize(this)
+        RoomMemoRepository.initialize(this)
     }
 }

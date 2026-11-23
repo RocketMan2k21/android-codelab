@@ -3,14 +3,14 @@ package com.sap.codelab.repository
 import androidx.room.Room
 import android.content.Context
 import androidx.annotation.WorkerThread
-import com.sap.codelab.model.Memo
+import com.sap.codelab.domain.model.Memo
 
 private const val DATABASE_NAME: String = "codelab"
 
 /**
  * The repository is used to retrieve data from a data source.
  */
-internal object Repository : IMemoRepository {
+internal object RoomMemoRepository : IMemoRepository {
 
     private lateinit var database: Database
 
@@ -19,9 +19,7 @@ internal object Repository : IMemoRepository {
     }
 
     @WorkerThread
-    override fun saveMemo(memo: Memo) {
-        database.getMemoDao().insert(memo)
-    }
+    override fun saveMemo(memo: Memo): Long = database.getMemoDao().insert(memo)
 
     @WorkerThread
     override fun getOpen(): List<Memo> = database.getMemoDao().getOpen()

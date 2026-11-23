@@ -1,6 +1,6 @@
 package com.sap.codelab.repository
 
-import com.sap.codelab.model.Memo
+import com.sap.codelab.domain.model.Memo
 
 /**
  * Interface for a repository offering memo related CRUD operations.
@@ -8,9 +8,9 @@ import com.sap.codelab.model.Memo
 internal interface IMemoRepository {
 
     /**
-     * Saves the given memo to the database.
+     * Saves the given memo to the database and returns its ID.
      */
-    fun saveMemo(memo: Memo)
+    fun saveMemo(memo: Memo): Long
 
     /**
      * @return all memos currently in the database.

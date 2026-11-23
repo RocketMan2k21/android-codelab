@@ -2,8 +2,8 @@ package com.sap.codelab.view.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sap.codelab.model.Memo
-import com.sap.codelab.repository.Repository
+import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.repository.RoomMemoRepository
 import com.sap.codelab.utils.coroutines.ScopeProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +25,7 @@ internal class HomeViewModel : ViewModel() {
     fun loadAllMemos() {
         isShowAll = true
         viewModelScope.launch(Dispatchers.Default) {
-            _memos.value = Repository.getAll()
+            _memos.value = RoomMemoRepository.getAll()
         }
     }
 
@@ -35,7 +35,7 @@ internal class HomeViewModel : ViewModel() {
     fun loadOpenMemos() {
         isShowAll = false
         viewModelScope.launch(Dispatchers.Default) {
-            _memos.value = Repository.getOpen()
+            _memos.value = RoomMemoRepository.getOpen()
         }
     }
 
@@ -57,7 +57,7 @@ internal class HomeViewModel : ViewModel() {
         ScopeProvider.application.launch(Dispatchers.Default) {
             // We'll only forward the update if the memo has been checked, since we don't offer to uncheck memos right now
             if (isChecked) {
-                Repository.saveMemo(memo.copy(isDone = true))
+                RoomMemoRepository.saveMemo(memo.copy(isDone = true))
             }
         }
     }

@@ -1,4 +1,4 @@
-package com.sap.codelab.model
+package com.sap.codelab.domain.model
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -22,6 +22,12 @@ internal data class Memo(
         var reminderLatitude: Long,
         @ColumnInfo(name = "reminderLongitude")
         var reminderLongitude: Long,
+        @ColumnInfo(name = "priority")
+        val priority: Int = 0,
+        @ColumnInfo(name = "triggeredAt")
+        val triggeredAt: Long? = null,
+        @ColumnInfo(name = "createdAt")
+        val createdAt: Long,
         @ColumnInfo(name = "isDone")
         var isDone: Boolean = false
 )
