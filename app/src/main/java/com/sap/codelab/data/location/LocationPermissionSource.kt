@@ -3,6 +3,7 @@ package com.sap.codelab.data.location
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.ContextCompat
 import com.sap.codelab.domain.model.LocationPermission
 import androidx.core.content.edit
@@ -26,9 +27,21 @@ internal class LocationPermissionSource(context: Context) {
             applicationContext,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        val foregroundGranted = fineGranted || coarseGranted
+        val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            foregroundGranted &&
+                ContextCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            foregroundGranted
+        }
 
         return LocationPermission(
-            isLocationPermissionEnabled = fineGranted || coarseGranted,
+            isLocationPermissionEnabled = foregroundGranted,
+            isPreciseLocationEnabled = fineGranted,
+            isBackgroundLocationEnabled = backgroundGranted,
             isRequested = preferences.getBoolean(FOREGROUND_PERMISSION_REQUESTED, false)
         )
     }

@@ -1,13 +1,18 @@
 package com.sap.codelab.view.create
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import android.provider.Settings
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -17,10 +22,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sap.codelab.R
+import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.databinding.ActivityCreateMemoBinding
 import com.sap.codelab.repository.App
 import com.sap.codelab.utils.extensions.empty
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
+import com.sap.codelab.view.map.LocationPermissionLauncher
 import com.sap.codelab.view.map.MapActivity
 import kotlinx.coroutines.launch
 
@@ -31,12 +38,27 @@ internal class CreateMemo : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateMemoBinding
     private lateinit var model: CreateMemoViewModel
+    private val permissionSource by lazy { LocationPermissionSource(this) }
 
     private val selectLocation = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             MapActivity.readLocation(result.data)?.let { model.selectLocation(it) }
             showSelectedLocation()
         }
+    }
+
+    private val requestForegroundLocation = registerForActivityResult(LocationPermissionLauncher()) {
+        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, permissionSource.getPermissionStatus())
+    }
+
+    private val requestBackgroundLocation = registerForActivityResult(
+        LocationPermissionLauncher(LocationPermissionLauncher.Mode.BACKGROUND)
+    ) {
+        model.onPermissionResult(SaveState.REQUESTING_BACKGROUND, permissionSource.getPermissionStatus())
+    }
+
+    private val openLocationSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        model.onPermissionResult(SaveState.OPENING_SETTINGS, permissionSource.getPermissionStatus())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +72,9 @@ internal class CreateMemo : AppCompatActivity() {
             }
         }
         model = ViewModelProvider(this, factory)[CreateMemoViewModel::class.java]
+        supportFragmentManager.setFragmentResultListener(BackgroundLocationDialog.RESULT_KEY, this) { _, result ->
+            model.onBackgroundRationaleResult(result.getBoolean(BackgroundLocationDialog.OPEN_SETTINGS_KEY))
+        }
         binding.contentCreateMemo.run {
             memoOptions.isVisible = true
             memoPriority.adapter = ArrayAdapter(
@@ -61,18 +86,28 @@ internal class CreateMemo : AppCompatActivity() {
                 memoPriority.setSelection(PriorityOption.MEDIUM.ordinal)
             }
             memoLocation.setOnClickListener {
-                selectLocation.launch(MapActivity.createIntent(this@CreateMemo, model.selectedLocation))
+                if (model.saveState.value == SaveState.READY) {
+                    selectLocation.launch(MapActivity.createIntent(this@CreateMemo, model.selectedLocation))
+                }
             }
         }
         showSelectedLocation()
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 model.saveState.collect { state ->
                     invalidateOptionsMenu()
                     when (state) {
-                        SaveState.SAVED, SaveState.SAVED_WITHOUT_REMINDER -> {
-                            if (state == SaveState.SAVED_WITHOUT_REMINDER) {
-                                Toast.makeText(this@CreateMemo, R.string.memo_saved_without_reminder, Toast.LENGTH_LONG).show()
+                        SaveState.BACKGROUND_RATIONALE -> showBackgroundRationale()
+                        SaveState.REQUESTING_FOREGROUND, SaveState.REQUESTING_BACKGROUND, SaveState.OPENING_SETTINGS ->
+                            launchPermissionStep(state)
+                        SaveState.SAVED, SaveState.SAVED_WITH_REMINDER, SaveState.SAVED_WITHOUT_REMINDER -> {
+                            val message = when (state) {
+                                SaveState.SAVED_WITH_REMINDER -> R.string.memo_saved_with_reminder
+                                SaveState.SAVED_WITHOUT_REMINDER -> R.string.memo_saved_without_reminder
+                                else -> null
+                            }
+                            if (message != null) {
+                                Toast.makeText(this@CreateMemo, message, Toast.LENGTH_LONG).show()
                             }
                             setResult(RESULT_OK)
                             finish()
@@ -85,6 +120,41 @@ internal class CreateMemo : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun showBackgroundRationale() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+            supportFragmentManager.findFragmentByTag(BackgroundLocationDialog.TAG) != null
+        ) return
+
+        val message = getString(
+            R.string.background_location_settings_message,
+            packageManager.backgroundPermissionOptionLabel
+        )
+        val guidance = if (permissionSource.getPermissionStatus().isPreciseLocationEnabled) {
+            message
+        } else {
+            getString(R.string.background_location_precise_guidance, message)
+        }
+        BackgroundLocationDialog.newInstance(guidance).show(supportFragmentManager, BackgroundLocationDialog.TAG)
+    }
+
+    private fun launchPermissionStep(state: SaveState) {
+        if (!model.claimPermissionLaunch(state)) return
+        try {
+            when (state) {
+                SaveState.REQUESTING_FOREGROUND -> requestForegroundLocation.launch(Unit)
+                SaveState.REQUESTING_BACKGROUND -> requestBackgroundLocation.launch(Unit)
+                SaveState.OPENING_SETTINGS -> openLocationSettings.launch(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+                )
+                else -> error("No permission launcher for $state")
+            }
+        } catch (_: ActivityNotFoundException) {
+            model.onPermissionResult(state, null)
+        } catch (_: SecurityException) {
+            model.onPermissionResult(state, null)
         }
     }
 
@@ -125,11 +195,12 @@ internal class CreateMemo : AppCompatActivity() {
      * Saves the memo if the input is valid; otherwise shows the corresponding error messages.
      */
     private fun saveMemo() {
+        if (model.saveState.value != SaveState.READY) return
         binding.contentCreateMemo.run {
             val priority = PriorityOption.entries[memoPriority.selectedItemPosition]
             model.updateMemo(memoTitle.text.toString(), memoDescription.text.toString(), priority.value)
             if (model.isMemoValid()) {
-                model.saveMemo()
+                model.saveMemo(permissionSource.getPermissionStatus())
             } else {
                 memoTitleContainer.error = getErrorMessage(model.hasTitleError(), R.string.memo_title_empty_error)
                 memoDescription.error = getErrorMessage(model.hasTextError(), R.string.memo_text_empty_error)

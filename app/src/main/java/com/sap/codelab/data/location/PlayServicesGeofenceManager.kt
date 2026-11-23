@@ -58,7 +58,7 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
             .setRequestId(memo.id.toString())
             .setCircularRegion(location.lat, location.lon, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL) // Using dwell with custom delay to get rid of spam
             .setLoiteringDelay(DWELL_DELAY_MILLIS)
             .build()
         val request = GeofencingRequest.Builder()

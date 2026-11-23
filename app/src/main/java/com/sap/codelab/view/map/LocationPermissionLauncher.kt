@@ -7,21 +7,28 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import com.sap.codelab.data.location.LocationPermissionSource
 
-internal class LocationPermissionLauncher : ActivityResultContract<Unit, LocationPermissionLauncher.Result>() {
+internal class LocationPermissionLauncher(
+    private val mode: Mode = Mode.FOREGROUND
+) : ActivityResultContract<Unit, LocationPermissionLauncher.Result>() {
+    enum class Mode { FOREGROUND, BACKGROUND }
+
     enum class Result {
         PRECISE,
         APPROXIMATE,
+        BACKGROUND_GRANTED,
         DENIED
     }
 
     private val contract = RequestMultiplePermissions()
-    private val permissions = arrayOf(
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-    )
+    private val permissions = when (mode) {
+        Mode.FOREGROUND -> arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        Mode.BACKGROUND -> arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
 
     override fun createIntent(context: Context, input: Unit): Intent {
-        LocationPermissionSource(context).markPermissionRequested()
+        if (mode == Mode.FOREGROUND) {
+            LocationPermissionSource(context).markPermissionRequested()
+        }
         return contract.createIntent(context, permissions)
     }
 
@@ -32,6 +39,7 @@ internal class LocationPermissionLauncher : ActivityResultContract<Unit, Locatio
         toResult(contract.parseResult(resultCode, intent))
 
     private fun toResult(grants: Map<String, Boolean>): Result = when {
+        grants[Manifest.permission.ACCESS_BACKGROUND_LOCATION] == true -> Result.BACKGROUND_GRANTED
         grants[Manifest.permission.ACCESS_FINE_LOCATION] == true -> Result.PRECISE
         grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> Result.APPROXIMATE
         else -> Result.DENIED

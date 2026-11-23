@@ -30,3 +30,7 @@ In this challenge the applicant has to implement location-based notifications/re
 - The notification should also contain an icon (the icon choice is up to you)
 - Some form of location tracking will be required to achieve the desired result, i.e. to know when a user is close to the given location of a memo
 - The feature must also work, when the app is running in the background (or possibly not running at all)
+
+## Android SDK target
+
+The app now targets Android 11 (API 30) and continues to support Android 8.1 (API 27) and later. The previous effective target was API 27, which let Android include background access in a foreground location request for compatibility. The updated target lets the app request background access separately when saving a location reminder. On Android 10 the user can grant it in the system permission dialog. On Android 11 and later the user grants it from the app's location permission settings.
