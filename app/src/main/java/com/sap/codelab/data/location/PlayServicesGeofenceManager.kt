@@ -6,15 +6,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.tasks.await
 
 private const val GEOFENCE_RADIUS_METERS = 200f
 private const val DWELL_DELAY_MILLIS = 30_000
+
+private const val TAG = "PlayServicesGeofenceManager"
 
 internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
     private val applicationContext = context.applicationContext
@@ -49,13 +53,10 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
             throw SecurityException("Background location permission is required to register a geofence.")
         }
 
+        val location = Location.fromE7(memo.reminderLatitude, memo.reminderLongitude)
         val geofence = Geofence.Builder()
             .setRequestId(memo.id.toString())
-            .setCircularRegion(
-                memo.reminderLatitude.toDouble(),
-                memo.reminderLongitude.toDouble(),
-                GEOFENCE_RADIUS_METERS
-            )
+            .setCircularRegion(location.lat, location.lon, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL)
             .setLoiteringDelay(DWELL_DELAY_MILLIS)
@@ -66,6 +67,7 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
             .build()
 
         client.addGeofences(request, transitionIntent).await()
+        Log.d(TAG, "Added request ${geofence.requestId} to geofence request")
     }
 
     override suspend fun remove(reminderId: String) {

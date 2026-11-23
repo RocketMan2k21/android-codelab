@@ -16,6 +16,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        manifestPlaceholders["MAPS_API_KEY"] = providers.gradleProperty("MAPS_API_KEY")
+            .getOrElse("DEFAULT_API_KEY")
     }
     buildTypes {
         release {
@@ -74,4 +76,5 @@ dependencies {
 
     // Play Services & Location
     implementation 'com.google.android.gms:play-services-location:21.4.0'
+    implementation 'com.google.android.gms:play-services-maps:20.1.0'
 }

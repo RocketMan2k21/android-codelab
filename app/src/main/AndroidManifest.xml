@@ -16,6 +16,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
+
         <activity
             android:name="com.sap.codelab.view.home.Home"
             android:exported="true"
@@ -30,6 +34,11 @@
             android:name="com.sap.codelab.view.create.CreateMemo"
             android:exported="false"
             android:label="@string/new_memo"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity
+            android:name="com.sap.codelab.view.map.MapActivity"
+            android:exported="false"
+            android:label="@string/select_memo_location"
             android:theme="@style/AppTheme.NoActionBar" />
         <activity
             android:name="com.sap.codelab.view.detail.ViewMemo"

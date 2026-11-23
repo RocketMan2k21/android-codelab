@@ -15,7 +15,10 @@ internal object RoomMemoRepository : IMemoRepository {
     private lateinit var database: Database
 
     fun initialize(applicationContext: Context) {
-        database = Room.databaseBuilder(applicationContext, Database::class.java, DATABASE_NAME).build()
+        database = Room
+            .databaseBuilder(applicationContext, Database::class.java, DATABASE_NAME)
+            .fallbackToDestructiveMigration(true)
+            .build()
     }
 
     @WorkerThread

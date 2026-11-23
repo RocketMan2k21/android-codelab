@@ -8,4 +8,21 @@
     <string name="action_save">Save</string>
     <string name="memo_title_empty_error">Please provide a title for this memo</string>
     <string name="memo_text_empty_error">Please provide a memo description</string>
+    <string name="memo_save_error">Couldn’t save the memo. Try again.</string>
+    <string name="memo_saved_without_reminder">Memo saved. The location reminder couldn’t be activated.</string>
+    <string name="memo_priority">Priority</string>
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+    <string name="add_memo_location">Add location</string>
+    <string name="change_memo_location">Change location</string>
+    <string name="selected_memo_location">%1$.5f°, %2$.5f°</string>
+    <string name="select_memo_location">Select location</string>
+    <string name="move_map_to_select_location">Drag the map to place the marker.</string>
+    <string name="confirm_memo_location">Use this location</string>
+    <string name="location_permission_denied">Location access is off. You can still choose a point on the map.</string>
+    <string name="location_permission_settings_title">Allow location access?</string>
+    <string name="location_permission_settings_message">Allow location access in Settings to center the map on your current location.</string>
+    <string name="open_app_settings">Open Settings</string>
+    <string name="choose_location_manually">Choose on map</string>
 </resources>

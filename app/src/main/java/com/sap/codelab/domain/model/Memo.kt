@@ -18,6 +18,7 @@ internal data class Memo(
         var description: String,
         @ColumnInfo(name = "reminderDate")
         var reminderDate: Long,
+        // The location columns store signed degrees multiplied by 10^7.
         @ColumnInfo(name = "reminderLatitude")
         var reminderLatitude: Long,
         @ColumnInfo(name = "reminderLongitude")
