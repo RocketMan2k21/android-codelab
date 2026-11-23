@@ -7,8 +7,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sap.codelab.domain.model.Location
-import com.sap.codelab.domain.model.LocationPermission
 import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.domain.model.NotificationAccess
+import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.domain.usecase.CreateMemoUseCase.Outcome
 import com.sap.codelab.domain.usecase.CreateMemoUseCase.ReminderRequest
@@ -18,9 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel for matching CreateMemo view. Handles user interactions.
- */
+/** Coordinates memo creation and the prerequisites for activating its location reminder. */
 internal class CreateMemoViewModel(
     private val savedState: SavedStateHandle,
     private val createMemo: CreateMemoUseCase,
@@ -28,9 +27,14 @@ internal class CreateMemoViewModel(
 ) : ViewModel() {
 
     enum class SaveState {
-        READY, BACKGROUND_RATIONALE, REQUESTING_FOREGROUND, REQUESTING_BACKGROUND,
-        OPENING_SETTINGS, SAVING, SAVED, SAVED_WITH_REMINDER, SAVED_WITHOUT_REMINDER, FAILED
+        READY, FOREGROUND_RATIONALE, REQUESTING_FOREGROUND, BACKGROUND_RATIONALE,
+        REQUESTING_BACKGROUND, OPENING_SETTINGS, LOCATION_SERVICES_RATIONALE, OPENING_LOCATION_SERVICES,
+        NOTIFICATION_PERMISSION_RATIONALE, APP_NOTIFICATIONS_RATIONALE, CHANNEL_NOTIFICATIONS_RATIONALE,
+        REQUESTING_NOTIFICATIONS, OPENING_APP_NOTIFICATIONS, OPENING_CHANNEL_NOTIFICATIONS,
+        SAVING, SAVED, SAVED_WITH_REMINDER, SAVED_WITHOUT_REMINDER, FAILED
     }
+
+    enum class RationaleAction { CONTINUE, OPEN_SETTINGS, SKIP }
 
     private val _saveState = MutableStateFlow(
         savedState.get<String>(PERMISSION_STATE_KEY)?.let(SaveState::valueOf) ?: SaveState.READY
@@ -40,6 +44,7 @@ internal class CreateMemoViewModel(
     val selectedLocation: Location?
         get() = savedState.get<DoubleArray>(LOCATION_KEY)?.let { Location(it[0], it[1]) }
 
+    /** Stores the selected map point so it survives Activity recreation. */
     fun selectLocation(location: Location) {
         savedState[LOCATION_KEY] = doubleArrayOf(location.lat, location.lon)
     }
@@ -54,10 +59,8 @@ internal class CreateMemoViewModel(
         createdAt = 0
     )
 
-    /**
-     * Saves the memo in it's current state.
-     */
-    fun saveMemo(permissions: LocationPermission) {
+    /** Captures the draft for this save attempt and starts the reminder checks if it has a location. */
+    fun saveMemo(readiness: ReminderReadiness) {
         if (_saveState.value != SaveState.READY) return
         savedState[DRAFT_KEY] = Bundle().apply {
             putString("title", memo.title)
@@ -67,54 +70,111 @@ internal class CreateMemoViewModel(
             putLong("latitude", memo.reminderLatitude)
             putLong("longitude", memo.reminderLongitude)
         }
-        when {
-            selectedLocation == null -> persistMemo(ReminderRequest.NONE)
-            permissions.canMonitor -> persistMemo(ReminderRequest.REGISTER)
-            sdkInt >= Build.VERSION_CODES.R && !permissions.isBackgroundLocationEnabled ->
-                awaitPermission(SaveState.BACKGROUND_RATIONALE)
-            sdkInt == Build.VERSION_CODES.Q && !permissions.isPreciseLocationEnabled ->
-                awaitPermission(SaveState.REQUESTING_FOREGROUND)
-            sdkInt == Build.VERSION_CODES.Q -> awaitPermission(SaveState.REQUESTING_BACKGROUND)
-            else -> persistMemo(ReminderRequest.SKIP)
-        }
-    }
-
-    fun onBackgroundRationaleResult(openSettings: Boolean) {
-        if (_saveState.value != SaveState.BACKGROUND_RATIONALE) return
-        if (openSettings) {
-            awaitPermission(SaveState.OPENING_SETTINGS)
+        if (selectedLocation == null) {
+            persistMemo(ReminderRequest.NONE)
         } else {
-            persistMemo(ReminderRequest.SKIP)
+            advanceReminder(readiness)
         }
     }
 
+    /** Advances to the requested system screen or finishes the save without monitoring. */
+    fun onRationaleResult(state: SaveState, action: RationaleAction) {
+        if (_saveState.value != state) return
+        if (action == RationaleAction.SKIP) {
+            persistMemo(ReminderRequest.SKIP)
+            return
+        }
+        val next = when (state) {
+            SaveState.FOREGROUND_RATIONALE -> SaveState.REQUESTING_FOREGROUND
+            SaveState.BACKGROUND_RATIONALE -> SaveState.OPENING_SETTINGS
+            SaveState.LOCATION_SERVICES_RATIONALE -> SaveState.OPENING_LOCATION_SERVICES
+            SaveState.NOTIFICATION_PERMISSION_RATIONALE -> if (action == RationaleAction.OPEN_SETTINGS) {
+                SaveState.OPENING_APP_NOTIFICATIONS
+            } else {
+                SaveState.REQUESTING_NOTIFICATIONS
+            }
+            SaveState.APP_NOTIFICATIONS_RATIONALE -> SaveState.OPENING_APP_NOTIFICATIONS
+            SaveState.CHANNEL_NOTIFICATIONS_RATIONALE -> SaveState.OPENING_CHANNEL_NOTIFICATIONS
+            else -> return
+        }
+        awaitPermission(next)
+    }
+
+    /** Marks the current system screen as launched so Activity recreation cannot launch it twice. */
     fun claimPermissionLaunch(state: SaveState): Boolean {
         if (_saveState.value != state || savedState.get<Boolean>(LAUNCH_STARTED_KEY) == true) return false
         savedState[LAUNCH_STARTED_KEY] = true
         return true
     }
 
-    fun onPermissionResult(state: SaveState, permissions: LocationPermission?) {
+    /** Applies the current Android state after a runtime request or a return from Settings. */
+    fun onPermissionResult(state: SaveState, readiness: ReminderReadiness) {
         if (_saveState.value != state || savedState.get<Boolean>(LAUNCH_STARTED_KEY) != true) return
-        when {
-            permissions?.canMonitor == true -> persistMemo(ReminderRequest.REGISTER)
-            state == SaveState.OPENING_SETTINGS && permissions != null ->
-                awaitPermission(SaveState.BACKGROUND_RATIONALE)
-            state == SaveState.REQUESTING_FOREGROUND && permissions?.isPreciseLocationEnabled == true ->
-                awaitPermission(SaveState.REQUESTING_BACKGROUND)
-            else -> persistMemo(ReminderRequest.SKIP)
+
+        val location = readiness.location
+        val declined = when (state) {
+            SaveState.REQUESTING_FOREGROUND -> !location.isPreciseLocationEnabled
+            SaveState.REQUESTING_BACKGROUND -> !location.isBackgroundLocationEnabled
+            SaveState.REQUESTING_NOTIFICATIONS -> readiness.notificationAccess == NotificationAccess.PERMISSION_REQUIRED
+            else -> false
+        }
+        if (declined) {
+            persistMemo(ReminderRequest.SKIP)
+            return
+        }
+
+        val incompleteSettings = when (state) {
+            SaveState.OPENING_SETTINGS -> SaveState.BACKGROUND_RATIONALE.takeIf {
+                !location.isPreciseLocationEnabled || !location.isBackgroundLocationEnabled
+            }
+            SaveState.OPENING_LOCATION_SERVICES -> SaveState.LOCATION_SERVICES_RATIONALE.takeUnless {
+                readiness.locationServicesEnabled
+            }
+            SaveState.OPENING_APP_NOTIFICATIONS, SaveState.OPENING_CHANNEL_NOTIFICATIONS ->
+                notificationRationale(readiness.notificationAccess)
+            else -> null
+        }
+        if (incompleteSettings == null) {
+            advanceReminder(readiness)
+        } else {
+            awaitPermission(incompleteSettings)
         }
     }
 
-    private val LocationPermission.canMonitor: Boolean
-        get() = isPreciseLocationEnabled && isBackgroundLocationEnabled
+    /** Finds the first unmet prerequisite, or saves with geofence registration when all are met. */
+    private fun advanceReminder(readiness: ReminderReadiness) {
+        val next = when {
+            !readiness.location.isPreciseLocationEnabled -> SaveState.FOREGROUND_RATIONALE
+            sdkInt == Build.VERSION_CODES.Q && !readiness.location.isBackgroundLocationEnabled ->
+                SaveState.REQUESTING_BACKGROUND
+            sdkInt >= Build.VERSION_CODES.R && !readiness.location.isBackgroundLocationEnabled ->
+                SaveState.BACKGROUND_RATIONALE
+            !readiness.locationServicesEnabled -> SaveState.LOCATION_SERVICES_RATIONALE
+            else -> notificationRationale(readiness.notificationAccess)
+        }
+        if (next == null) {
+            persistMemo(ReminderRequest.REGISTER)
+        } else {
+            awaitPermission(next)
+        }
+    }
 
+    /** Selects the notification prompt for the blocked permission, app, or channel. */
+    private fun notificationRationale(access: NotificationAccess): SaveState? = when (access) {
+        NotificationAccess.ENABLED -> null
+        NotificationAccess.PERMISSION_REQUIRED -> SaveState.NOTIFICATION_PERMISSION_RATIONALE
+        NotificationAccess.APP_DISABLED -> SaveState.APP_NOTIFICATIONS_RATIONALE
+        NotificationAccess.CHANNEL_DISABLED -> SaveState.CHANNEL_NOTIFICATIONS_RATIONALE
+    }
+
+    /** Saves the next step and clears the launch marker for that step. */
     private fun awaitPermission(state: SaveState) {
         savedState[PERMISSION_STATE_KEY] = state.name
         savedState[LAUNCH_STARTED_KEY] = false
         _saveState.value = state
     }
 
+    /** Saves the captured draft and publishes the write or geofence registration outcome. */
     private fun persistMemo(reminder: ReminderRequest) {
         val draft = checkNotNull(savedState.remove<Bundle>(DRAFT_KEY))
         savedState.remove<String>(PERMISSION_STATE_KEY)
@@ -150,13 +210,12 @@ internal class CreateMemoViewModel(
         }
     }
 
+    /** Allows another save attempt after the UI has reported a write failure. */
     fun acknowledgeSaveFailure() {
         _saveState.value = SaveState.READY
     }
 
-    /**
-     * Call this method to update the memo. This is usually needed when the user changed his input.
-     */
+    /** Updates the draft from the form and includes the currently selected map point. */
     fun updateMemo(title: String, description: String, priority: Int) {
         val location = selectedLocation
         memo = memo.copy(
@@ -169,19 +228,13 @@ internal class CreateMemoViewModel(
         )
     }
 
-    /**
-     * @return true if the title and content are not blank; false otherwise.
-     */
+    /** Returns whether the draft has a title and description. */
     fun isMemoValid(): Boolean = memo.title.isNotBlank() && memo.description.isNotBlank()
 
-    /**
-     * @return true if the memo text is blank, false otherwise.
-     */
+    /** Returns whether the description is blank. */
     fun hasTextError() = memo.description.isBlank()
 
-    /**
-     * @return true if the memo title is blank, false otherwise.
-     */
+    /** Returns whether the title is blank. */
     fun hasTitleError() = memo.title.isBlank()
 
     private companion object {

@@ -7,8 +7,11 @@ import com.sap.codelab.data.location.GeofenceManager
 import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.LocationPermission
 import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.domain.model.NotificationAccess
+import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.view.create.CreateMemoViewModel.RationaleAction
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -31,7 +34,7 @@ class CreateMemoPermissionTest {
         original.updateMemo("Original title", "Description", 2)
         original.saveMemo(preciseOnly)
         assertEquals(SaveState.BACKGROUND_RATIONALE, original.saveState.value)
-        original.onBackgroundRationaleResult(openSettings = true)
+        original.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
         assertTrue(original.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
 
         val restoredState = SavedStateHandle(fixture.state.keys().associateWith { key -> fixture.state.get<Any>(key) })
@@ -44,7 +47,7 @@ class CreateMemoPermissionTest {
         assertTrue(fixture.savedMemos.isEmpty())
         assertFalse(restored.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
 
-        restored.onBackgroundRationaleResult(openSettings = false)
+        restored.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.SKIP)
         restored.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
         assertEquals("Original title", fixture.savedMemos.single().title)
         assertEquals(2, fixture.savedMemos.single().priority)
@@ -58,16 +61,16 @@ class CreateMemoPermissionTest {
         model.selectLocation(Location(42.0, 19.0))
         model.updateMemo("Title", "Description", 1)
         model.saveMemo(preciseOnly)
-        model.onBackgroundRationaleResult(openSettings = true)
+        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
         assertTrue(model.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
         model.onPermissionResult(
             SaveState.OPENING_SETTINGS,
-            allPermissions.copy(isPreciseLocationEnabled = false)
+            allPermissions.copy(location = allPermissions.location.copy(isPreciseLocationEnabled = false))
         )
         assertEquals(SaveState.BACKGROUND_RATIONALE, model.saveState.value)
         assertTrue(fixture.savedMemos.isEmpty())
 
-        model.onBackgroundRationaleResult(openSettings = true)
+        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
         assertTrue(model.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
         model.onPermissionResult(SaveState.OPENING_SETTINGS, allPermissions)
 
@@ -81,7 +84,9 @@ class CreateMemoPermissionTest {
         val model = fixture.newViewModel()
         model.selectLocation(Location(42.0, 19.0))
         model.updateMemo("Title", "Description", 1)
-        model.saveMemo(preciseOnly.copy(isPreciseLocationEnabled = false))
+        model.saveMemo(preciseOnly.copy(location = preciseOnly.location.copy(isPreciseLocationEnabled = false)))
+        assertEquals(SaveState.FOREGROUND_RATIONALE, model.saveState.value)
+        model.onRationaleResult(SaveState.FOREGROUND_RATIONALE, RationaleAction.CONTINUE)
         assertEquals(SaveState.REQUESTING_FOREGROUND, model.saveState.value)
         assertTrue(model.claimPermissionLaunch(SaveState.REQUESTING_FOREGROUND))
         model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, preciseOnly)
@@ -129,12 +134,111 @@ class CreateMemoPermissionTest {
         model.selectLocation(location)
         model.updateMemo("Title", "Description", 1)
         model.saveMemo(preciseOnly)
-        model.onBackgroundRationaleResult(openSettings = false)
+        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.SKIP)
 
         model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
         assertEquals(location.latitudeE7, fixture.savedMemos.single().reminderLatitude)
         assertEquals(location.longitudeE7, fixture.savedMemos.single().reminderLongitude)
         assertTrue(fixture.registeredMemos.isEmpty())
+    }
+
+    @Test
+    fun walksThroughAllRequirementsBeforeRegistering() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.TIRAMISU)
+        val model = fixture.newViewModelWithLocation()
+        val foregroundOnly = preciseOnly.copy(
+            locationServicesEnabled = false,
+            notificationAccess = NotificationAccess.PERMISSION_REQUIRED
+        )
+        val noLocationGrant = foregroundOnly.copy(location = foregroundOnly.location.copy(
+            isLocationPermissionEnabled = false,
+            isPreciseLocationEnabled = false
+        ))
+        model.saveMemo(noLocationGrant)
+        model.continueFrom(SaveState.FOREGROUND_RATIONALE, SaveState.REQUESTING_FOREGROUND)
+        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, foregroundOnly)
+
+        model.continueFrom(SaveState.BACKGROUND_RATIONALE, SaveState.OPENING_SETTINGS)
+        val locationOff = foregroundOnly.copy(location = allPermissions.location)
+        model.onPermissionResult(SaveState.OPENING_SETTINGS, locationOff)
+
+        model.continueFrom(SaveState.LOCATION_SERVICES_RATIONALE, SaveState.OPENING_LOCATION_SERVICES)
+        model.onPermissionResult(SaveState.OPENING_LOCATION_SERVICES, locationOff)
+        assertEquals(SaveState.LOCATION_SERVICES_RATIONALE, model.saveState.value)
+        assertFalse(model.claimPermissionLaunch(SaveState.OPENING_LOCATION_SERVICES))
+        assertTrue(fixture.savedMemos.isEmpty())
+
+        model.continueFrom(SaveState.LOCATION_SERVICES_RATIONALE, SaveState.OPENING_LOCATION_SERVICES)
+        model.onPermissionResult(SaveState.OPENING_LOCATION_SERVICES, locationOff.copy(locationServicesEnabled = true))
+        model.continueFrom(SaveState.NOTIFICATION_PERMISSION_RATIONALE, SaveState.REQUESTING_NOTIFICATIONS)
+        model.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, allPermissions)
+
+        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+    }
+
+    @Test
+    fun foregroundAndNotificationDenialsStopBeforeRegistration() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.TIRAMISU)
+        val model = fixture.newViewModelWithLocation()
+        val approximate = preciseOnly.copy(location = preciseOnly.location.copy(isPreciseLocationEnabled = false))
+        model.saveMemo(approximate)
+        model.continueFrom(SaveState.FOREGROUND_RATIONALE, SaveState.REQUESTING_FOREGROUND)
+        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, approximate)
+        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        assertEquals(1, fixture.savedMemos.size)
+        assertTrue(fixture.registeredMemos.isEmpty())
+
+        val notificationFixture = Fixture(Build.VERSION_CODES.TIRAMISU)
+        val notificationModel = notificationFixture.newViewModelWithLocation()
+        val missingPermission = allPermissions.copy(notificationAccess = NotificationAccess.PERMISSION_REQUIRED)
+        notificationModel.saveMemo(missingPermission)
+        notificationModel.continueFrom(SaveState.NOTIFICATION_PERMISSION_RATIONALE, SaveState.REQUESTING_NOTIFICATIONS)
+        notificationModel.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, missingPermission)
+        notificationModel.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        assertEquals(1, notificationFixture.savedMemos.size)
+        assertTrue(notificationFixture.registeredMemos.isEmpty())
+    }
+
+    @Test
+    fun skippingDisabledLocationServicesStopsBeforeRequestingNotifications() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.TIRAMISU)
+        val model = fixture.newViewModelWithLocation()
+        model.saveMemo(allPermissions.copy(
+            locationServicesEnabled = false,
+            notificationAccess = NotificationAccess.PERMISSION_REQUIRED
+        ))
+        assertEquals(SaveState.LOCATION_SERVICES_RATIONALE, model.saveState.value)
+        model.onRationaleResult(SaveState.LOCATION_SERVICES_RATIONALE, RationaleAction.SKIP)
+        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        assertEquals(1, fixture.savedMemos.size)
+        assertTrue(fixture.registeredMemos.isEmpty())
+    }
+
+    @Test
+    fun blockedAppAndChannelUseNotificationSettingsWithoutRuntimeRequest() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.S_V2)
+        val model = fixture.newViewModelWithLocation()
+        val appBlocked = allPermissions.copy(notificationAccess = NotificationAccess.APP_DISABLED)
+        val channelBlocked = appBlocked.copy(notificationAccess = NotificationAccess.CHANNEL_DISABLED)
+        model.saveMemo(appBlocked)
+        model.continueFrom(SaveState.APP_NOTIFICATIONS_RATIONALE, SaveState.OPENING_APP_NOTIFICATIONS)
+        model.onPermissionResult(SaveState.OPENING_APP_NOTIFICATIONS, channelBlocked)
+        model.continueFrom(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, SaveState.OPENING_CHANNEL_NOTIFICATIONS)
+        model.onPermissionResult(SaveState.OPENING_CHANNEL_NOTIFICATIONS, channelBlocked)
+        assertEquals(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, model.saveState.value)
+        assertTrue(fixture.savedMemos.isEmpty())
+
+        model.continueFrom(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, SaveState.OPENING_CHANNEL_NOTIFICATIONS)
+        model.onPermissionResult(SaveState.OPENING_CHANNEL_NOTIFICATIONS, allPermissions)
+        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        assertEquals(fixture.savedMemos.single().copy(id = MEMO_ID), fixture.registeredMemos.single())
+    }
+
+    private fun CreateMemoViewModel.continueFrom(rationale: SaveState, launch: SaveState) {
+        assertEquals(rationale, saveState.value)
+        onRationaleResult(rationale, RationaleAction.CONTINUE)
+        assertTrue(claimPermissionLaunch(launch))
     }
 
     private fun onMain(test: suspend () -> Unit) {
@@ -172,16 +276,25 @@ class CreateMemoPermissionTest {
 
         fun newViewModel(savedState: SavedStateHandle = state) =
             CreateMemoViewModel(savedState, CreateMemoUseCase(repository, geofenceManager), sdkInt)
+
+        fun newViewModelWithLocation() = newViewModel().apply {
+            selectLocation(Location(42.0, 19.0))
+            updateMemo("Title", "Description", 1)
+        }
     }
 
     private companion object {
         const val MEMO_ID = 42L
-        val preciseOnly = LocationPermission(
-            isLocationPermissionEnabled = true,
-            isPreciseLocationEnabled = true,
-            isBackgroundLocationEnabled = false,
-            isRequested = true
+        val preciseOnly = ReminderReadiness(
+            location = LocationPermission(
+                isLocationPermissionEnabled = true,
+                isPreciseLocationEnabled = true,
+                isBackgroundLocationEnabled = false,
+                isRequested = true
+            ),
+            locationServicesEnabled = true,
+            notificationAccess = NotificationAccess.ENABLED
         )
-        val allPermissions = preciseOnly.copy(isBackgroundLocationEnabled = true)
+        val allPermissions = preciseOnly.copy(location = preciseOnly.location.copy(isBackgroundLocationEnabled = true))
     }
 }

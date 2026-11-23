@@ -33,4 +33,4 @@ In this challenge the applicant has to implement location-based notifications/re
 
 ## Android SDK target
 
-The app now targets Android 11 (API 30) and continues to support Android 8.1 (API 27) and later. The previous effective target was API 27, which let Android include background access in a foreground location request for compatibility. The updated target lets the app request background access separately when saving a location reminder. On Android 10 the user can grant it in the system permission dialog. On Android 11 and later the user grants it from the app's location permission settings.
+The app targets Android 13 (API 33) and supports Android 8.1 (API 27) and later. Targeting API 33 lets the app request notification permission when the user saves a location reminder. Background location remains a separate permission. Android 10 offers it in the system permission dialog, and Android 11 and later offer it in the app's location permission settings.

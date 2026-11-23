@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.view.detail.BUNDLE_MEMO_ID
 import com.sap.codelab.view.detail.ViewMemo
 
@@ -27,14 +28,25 @@ internal class GeofenceNotificationManager(context: Context) {
         )
     }
 
-    /** Shows the reminder for a memo whose geofence has triggered. */
-    fun show(memo: Memo) {
+    fun getAccess(): NotificationAccess {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            return
+            return NotificationAccess.PERMISSION_REQUIRED
         }
+        if (!notifications.areNotificationsEnabled()) return NotificationAccess.APP_DISABLED
+        val channel = notifications.getNotificationChannel(CHANNEL_ID)
+        return if (channel == null || channel.importance == NotificationManager.IMPORTANCE_NONE) {
+            NotificationAccess.CHANNEL_DISABLED
+        } else {
+            NotificationAccess.ENABLED
+        }
+    }
+
+    /** Shows the reminder for a memo whose geofence has triggered. */
+    fun show(memo: Memo) {
+        if (getAccess() != NotificationAccess.ENABLED) return
 
         val characters = BreakIterator.getCharacterInstance().apply { setText(memo.description) }
         val end = characters.next(DESCRIPTION_LIMIT)
@@ -58,8 +70,8 @@ internal class GeofenceNotificationManager(context: Context) {
         notifications.notify("geofence:${memo.id}", 0, notification)
     }
 
-    private companion object {
+    companion object {
         const val CHANNEL_ID = "geofence_reminders"
-        const val DESCRIPTION_LIMIT = 140
+        private const val DESCRIPTION_LIMIT = 140
     }
 }
