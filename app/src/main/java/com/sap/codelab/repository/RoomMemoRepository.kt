@@ -25,6 +25,9 @@ internal object RoomMemoRepository : IMemoRepository {
     override fun getOpen(): List<Memo> = database.getMemoDao().getOpen()
 
     @WorkerThread
+    fun getOpenByIds(memoIds: List<Long>): List<Memo> = database.getMemoDao().getOpenByIds(memoIds)
+
+    @WorkerThread
     override fun getAll(): List<Memo> = database.getMemoDao().getAll()
 
     @WorkerThread

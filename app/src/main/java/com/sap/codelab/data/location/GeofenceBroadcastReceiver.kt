@@ -7,6 +7,11 @@ import android.util.Log
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofenceStatusCodes
+import com.sap.codelab.repository.App
+import com.sap.codelab.repository.RoomMemoRepository
+import com.sap.codelab.utils.coroutines.ScopeProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val TAG = "GeofenceReceiver"
 
@@ -17,9 +22,23 @@ internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
             Log.w(TAG, GeofenceStatusCodes.getStatusCodeString(event.errorCode))
             return
         }
-        if (event.geofenceTransition == Geofence.GEOFENCE_TRANSITION_DWELL) {
-            val reminderIds = event.triggeringGeofences.orEmpty().map { it.requestId }
-            Log.d(TAG, "Dwell transition for reminders: $reminderIds")
+        if (event.geofenceTransition != Geofence.GEOFENCE_TRANSITION_DWELL) return
+
+        val memoIds = event.triggeringGeofences.orEmpty().mapNotNull { it.requestId.toLongOrNull() }
+        if (memoIds.isEmpty()) return
+
+        val app = context.applicationContext as App
+        val pendingResult = goAsync() ?: return
+        ScopeProvider.newScope(Dispatchers.IO).launch {
+            try {
+                RoomMemoRepository.getOpenByIds(memoIds).forEach { memo ->
+                    app.geofenceNotificationManager.show(memo)
+                }
+            } catch (error: RuntimeException) {
+                Log.e(TAG, "Could not show geofence reminders", error)
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 }

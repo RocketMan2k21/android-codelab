@@ -24,6 +24,9 @@ internal interface MemoDao {
     @Query("SELECT * FROM memo WHERE isDone = 0")
     fun getOpen(): List<Memo>
 
+    @Query("SELECT * FROM memo WHERE isDone = 0 AND id IN (:memoIds)")
+    fun getOpenByIds(memoIds: List<Long>): List<Memo>
+
     /**
      * Inserts the given Memo into the database. We currently do not support updating of memos.
      */
