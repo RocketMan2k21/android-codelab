@@ -3,15 +3,15 @@ package com.sap.codelab
 import android.app.Application
 import androidx.room.Room
 import com.sap.codelab.data.geofence.GeofenceNotificationManager
-import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.data.geofence.PlayServicesGeofenceManager
-import com.sap.codelab.utils.Database
 import com.sap.codelab.data.local.repository.RoomMemoRepository
+import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.data.location.PlayServicesLocationSettingsChecker
 import com.sap.codelab.data.permission.NotificationPermissionRequestHistory
 import com.sap.codelab.domain.LocationSettingsChecker
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.domain.usecase.MonitoringUseCase
+import com.sap.codelab.utils.Database
 
 /**
  * Extension of the Android Application class.

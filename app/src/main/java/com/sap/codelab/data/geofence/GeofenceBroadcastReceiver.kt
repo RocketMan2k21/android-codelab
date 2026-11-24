@@ -5,8 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofenceStatusCodes
+import com.google.android.gms.location.GeofencingEvent
 import com.sap.codelab.App
 import com.sap.codelab.utils.coroutines.ScopeProvider
 import kotlinx.coroutines.launch

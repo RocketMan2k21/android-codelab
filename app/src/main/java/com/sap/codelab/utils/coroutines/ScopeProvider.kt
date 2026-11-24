@@ -1,7 +1,8 @@
 package com.sap.codelab.utils.coroutines
 
-import kotlinx.coroutines.*
-import kotlin.coroutines.EmptyCoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Provides the coroutines application scope and factory methods for creating local scopes used in activities, fragments, components etc.

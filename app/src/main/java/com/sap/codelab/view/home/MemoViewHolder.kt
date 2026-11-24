@@ -1,8 +1,8 @@
 package com.sap.codelab.view.home
 
-import androidx.recyclerview.widget.RecyclerView
 import android.view.View
 import android.widget.CompoundButton
+import androidx.recyclerview.widget.RecyclerView
 import com.sap.codelab.databinding.RecyclerviewMemoBinding
 import com.sap.codelab.domain.model.Memo
 

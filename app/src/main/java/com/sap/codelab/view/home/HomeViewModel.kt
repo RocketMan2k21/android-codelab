@@ -3,11 +3,11 @@ package com.sap.codelab.view.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sap.codelab.domain.model.Memo
-import com.sap.codelab.domain.usecase.MonitoringUseCase
 import com.sap.codelab.App
 import com.sap.codelab.domain.LocationSettingsChecker
 import com.sap.codelab.domain.MemoRepository
+import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.domain.usecase.MonitoringUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel

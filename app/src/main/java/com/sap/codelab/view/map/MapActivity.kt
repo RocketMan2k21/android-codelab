@@ -14,11 +14,11 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.sap.codelab.App
 import com.sap.codelab.R
 import com.sap.codelab.data.location.FusedLocationDataSource
 import com.sap.codelab.databinding.ActivityMapBinding
 import com.sap.codelab.domain.model.Location
-import com.sap.codelab.App
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

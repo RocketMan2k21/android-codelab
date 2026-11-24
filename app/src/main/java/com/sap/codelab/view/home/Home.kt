@@ -13,9 +13,9 @@ import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.annotation.StringRes
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.sap.codelab.App
 import com.sap.codelab.R
 import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityHomeBinding
@@ -34,7 +35,6 @@ import com.sap.codelab.databinding.ItemMonitoringRequirementBinding
 import com.sap.codelab.domain.LocationSettingsChecker.Result
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
-import com.sap.codelab.App
 import com.sap.codelab.utils.extensions.empty
 import com.sap.codelab.view.create.CreateMemo
 import com.sap.codelab.view.detail.BUNDLE_MEMO_ID

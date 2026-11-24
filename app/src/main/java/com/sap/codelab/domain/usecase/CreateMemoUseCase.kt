@@ -1,8 +1,8 @@
 package com.sap.codelab.domain.usecase
 
 import com.sap.codelab.domain.GeofenceManager
-import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.MemoRepository
+import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 

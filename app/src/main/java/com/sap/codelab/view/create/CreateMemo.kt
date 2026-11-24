@@ -25,10 +25,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.sap.codelab.App
 import com.sap.codelab.R
 import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityCreateMemoBinding
-import com.sap.codelab.App
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveResult
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import com.sap.codelab.view.map.LocationPermissionLauncher
