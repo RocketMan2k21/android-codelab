@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 import com.sap.codelab.App
+import com.sap.codelab.domain.LocationSettingsChecker
 import com.sap.codelab.domain.MemoRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -17,7 +18,8 @@ import kotlinx.coroutines.launch
 
 internal class HomeViewModel(
     private val repository: MemoRepository,
-    private val monitoring: MonitoringUseCase
+    private val monitoring: MonitoringUseCase,
+    private val locationSettingsChecker: LocationSettingsChecker,
 ) : ViewModel() {
 
     data class MonitoringState(
@@ -39,6 +41,8 @@ internal class HomeViewModel(
     val memoUpdateErrors = completionErrors.receiveAsFlow()
 
     fun readRequirements() = monitoring.readRequirements()
+
+    suspend fun checkLocationSettings(): LocationSettingsChecker.Result = locationSettingsChecker.check()
 
     fun loadAllMemos() {
         isShowingAll = true
@@ -100,6 +104,10 @@ internal class HomeViewModel(
     }
 
     companion object {
-        fun create(app: App): HomeViewModel = HomeViewModel(app.memoRepository, app.monitoringUseCase)
+        fun create(app: App): HomeViewModel = HomeViewModel(
+            repository = app.memoRepository,
+            monitoring = app.monitoringUseCase,
+            locationSettingsChecker = app.locationSettingsChecker,
+        )
     }
 }

@@ -26,16 +26,12 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.gms.common.api.ResolvableApiException
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.LocationSettingsRequest
-import com.google.android.gms.location.Priority
 import com.sap.codelab.R
 import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityHomeBinding
 import com.sap.codelab.databinding.DialogMonitoringOptionsBinding
 import com.sap.codelab.databinding.ItemMonitoringRequirementBinding
+import com.sap.codelab.domain.LocationSettingsChecker.Result
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.App
@@ -44,9 +40,7 @@ import com.sap.codelab.view.create.CreateMemo
 import com.sap.codelab.view.detail.BUNDLE_MEMO_ID
 import com.sap.codelab.view.detail.ViewMemo
 import com.sap.codelab.view.map.LocationPermissionLauncher
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /**
  * The main activity of the app. Shows a list of recorded memos and lets the user add new memos.
@@ -242,22 +236,17 @@ internal class Home : AppCompatActivity() {
 
     private fun fixLocationServices() {
         lifecycleScope.launch {
-            val request = LocationSettingsRequest.Builder()
-                .addLocationRequest(LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000L).build())
-                .build()
-            try {
-                LocationServices.getSettingsClient(this@Home).checkLocationSettings(request).await()
-                if (!model.readRequirements().locationServicesEnabled) {
-                    openSettings(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                } else {
-                    model.refreshMemos()
+            when (val result = model.checkLocationSettings()) {
+                Result.Satisfied -> {
+                    if (model.readRequirements().locationServicesEnabled) {
+                        model.refreshMemos()
+                    } else {
+                        openSettings(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }
                 }
-            } catch (error: ResolvableApiException) {
-                resolveLocationSettings.launch(IntentSenderRequest.Builder(error.resolution).build())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                openSettings(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                is Result.ResolutionRequired ->
+                    resolveLocationSettings.launch(IntentSenderRequest.Builder(result.intentSender).build())
+                Result.Unavailable -> openSettings(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }
         }
     }
