@@ -3,14 +3,11 @@ package com.sap.codelab.data.location
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.SystemClock
 import android.util.Log
-import androidx.core.app.NotificationManagerCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.sap.codelab.repository.App
-import com.sap.codelab.repository.RoomMemoRepository
 import com.sap.codelab.utils.coroutines.ScopeProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,9 +30,9 @@ internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
         val app = context.applicationContext as App
         val pendingResult = goAsync() ?: return
-        ScopeProvider.newScope(Dispatchers.IO).launch {
+        ScopeProvider.newScope(Dispatchers.Default).launch {
             try {
-                RoomMemoRepository.getOpenByIds(memoIds).forEach { memo ->
+                app.memoRepository.getOpenByIds(memoIds).forEach { memo ->
                     app.geofenceNotificationManager.show(memo)
                 }
             } catch (error: RuntimeException) {

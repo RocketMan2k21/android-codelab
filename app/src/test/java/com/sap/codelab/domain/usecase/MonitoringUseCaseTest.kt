@@ -14,7 +14,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -67,7 +67,7 @@ class MonitoringUseCaseTest {
         val onEquator = testMemo(id = 4).copy(reminderLatitude = 0.0)
         val onPrimeMeridian = testMemo(id = 5).copy(reminderLongitude = 0.0)
         listOf(alreadyRegistered, completed, withoutLocation, onEquator, onPrimeMeridian)
-            .forEach(repository::saveMemo)
+            .forEach { repository.saveMemo(it) }
 
         val before = monitoring.status(repository.getOpen())
         assertTrue(before.isVisible)
@@ -158,7 +158,7 @@ class MonitoringUseCaseTest {
     fun activationReportsFailuresAndRetriesOnlyUnregisteredMemos() = runBlocking {
         val failed = testMemo(id = 1)
         val successful = testMemo(id = 2)
-        listOf(failed, successful).forEach(repository::saveMemo)
+        listOf(failed, successful).forEach { repository.saveMemo(it) }
         val error = SecurityException("Registration temporarily unavailable")
         geofences.onRegister = { if (it.id == failed.id) throw error }
 
@@ -180,13 +180,14 @@ class MonitoringUseCaseTest {
     }
 
     @Test
-    fun activationCancellationPropagatesWithoutReportingFailure() {
+    fun activationCancellationPropagatesWithoutReportingFailure() = runBlocking {
         val memo = testMemo(id = 1)
+        val cancellation = CancellationException("Activation cancelled")
         repository.saveMemo(memo)
-        geofences.onRegister = { throw CancellationException("Activation cancelled") }
+        geofences.onRegister = { throw cancellation }
 
         mockStatic(Log::class.java).use { log ->
-            assertThrows(CancellationException::class.java) { runBlocking { monitoring.activate() } }
+            assertSame(cancellation, runCatching { monitoring.activate() }.exceptionOrNull())
             log.verifyNoInteractions()
         }
 
@@ -197,7 +198,7 @@ class MonitoringUseCaseTest {
     fun completingMemoRemovesItsGeofenceAndKeepsItOutOfTheOpenList() = runBlocking {
         val target = testMemo(id = 1).copy(isRegistered = true)
         val other = testMemo(id = 2).copy(isRegistered = true)
-        listOf(target, other).forEach(repository::saveMemo)
+        listOf(target, other).forEach { repository.saveMemo(it) }
 
         monitoring.setCompleted(target.id, completed = true)
 
@@ -236,33 +237,30 @@ class MonitoringUseCaseTest {
     }
 
     @Test
-    fun failedRemovalKeepsTheRegistrationFlagUntilRemovalIsRetried() {
+    fun failedRemovalKeepsTheRegistrationFlagUntilRemovalIsRetried() = runBlocking {
         val memo = testMemo(id = 1).copy(isRegistered = true)
         repository.saveMemo(memo)
         val failure = IllegalStateException("Geofence removal failed")
         geofences.onRemove = { throw failure }
 
-        val thrown = assertThrows(IllegalStateException::class.java) {
-            runBlocking { monitoring.setCompleted(memo.id, completed = true) }
-        }
+        val thrown = runCatching { monitoring.setCompleted(memo.id, completed = true) }.exceptionOrNull()
 
-        assertEquals(failure.message, thrown.message)
+        assertSame(failure, thrown)
         assertEquals(memo.copy(isDone = true), repository.getMemoById(memo.id))
         assertTrue(repository.getOpen().isEmpty())
 
         geofences.onRemove = {}
-        runBlocking { monitoring.setCompleted(memo.id, completed = true) }
+        monitoring.setCompleted(memo.id, completed = true)
 
         assertEquals(listOf(memo.id.toString(), memo.id.toString()), geofences.removed)
         assertEquals(memo.copy(isDone = true, isRegistered = false), repository.getMemoById(memo.id))
     }
 
     @Test
-    fun completingAnUnknownIdDoesNotRemoveAGeofence() {
-        assertThrows(NoSuchElementException::class.java) {
-            runBlocking { monitoring.setCompleted(memoId = 999, completed = true) }
-        }
+    fun completingAnUnknownIdDoesNotRemoveAGeofence() = runBlocking {
+        val thrown = runCatching { monitoring.setCompleted(memoId = 999, completed = true) }.exceptionOrNull()
 
+        assertTrue(thrown is NoSuchElementException)
         assertTrue(geofences.removed.isEmpty())
         assertTrue(repository.getAll().isEmpty())
     }

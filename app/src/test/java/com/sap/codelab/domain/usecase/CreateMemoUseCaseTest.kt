@@ -7,7 +7,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -92,29 +92,25 @@ class CreateMemoUseCaseTest {
     }
 
     @Test
-    fun registrationCancellationPropagatesAndLeavesTheMemoUnregistered() {
+    fun registrationCancellationPropagatesAndLeavesTheMemoUnregistered() = runBlocking {
         val cancellation = CancellationException("Registration cancelled")
         geofences.onRegister = { throw cancellation }
 
-        val thrown = assertThrows(CancellationException::class.java) {
-            runBlocking { createMemo(testMemo(), ReminderRequest.REGISTER) }
-        }
+        val thrown = runCatching { createMemo(testMemo(), ReminderRequest.REGISTER) }.exceptionOrNull()
 
-        assertEquals(cancellation.message, thrown.message)
+        assertSame(cancellation, thrown)
         assertEquals(listOf(geofences.registered.single()), repository.getOpen())
         assertFalse(repository.getOpen().single().isRegistered)
     }
 
     @Test
-    fun saveFailurePropagatesWithoutRegisteringAGeofence() {
+    fun saveFailurePropagatesWithoutRegisteringAGeofence() = runBlocking {
         val failure = IllegalStateException("Storage unavailable")
         repository.saveFailure = failure
 
-        val thrown = assertThrows(IllegalStateException::class.java) {
-            runBlocking { createMemo(testMemo(), ReminderRequest.REGISTER) }
-        }
+        val thrown = runCatching { createMemo(testMemo(), ReminderRequest.REGISTER) }.exceptionOrNull()
 
-        assertEquals(failure.message, thrown.message)
+        assertSame(failure, thrown)
         assertTrue(repository.getAll().isEmpty())
         assertTrue(geofences.registered.isEmpty())
     }

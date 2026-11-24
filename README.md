@@ -34,3 +34,34 @@ In this challenge the applicant has to implement location-based notifications/re
 ## Android SDK target
 
 The app targets Android 13 (API 33) and supports Android 8.1 (API 27) and later. Targeting API 33 lets the app request notification permission when the user saves a location reminder. Background location remains a separate permission. Android 10 offers it in the system permission dialog, and Android 11 and later offer it in the app's location permission settings.
+
+## Dependency injection
+
+The app uses manual constructor injection. Android creates `App` from the manifest. `App.onCreate()` initializes the process-wide `RoomMemoRepository` and creates the shared `GeofenceNotificationManager`. The two use cases are created lazily and reused for the lifetime of that application process. `Home`, `CreateMemo`, and `ViewMemo` use AndroidX `ViewModelProvider` factories to supply dependencies to their Activity-scoped ViewModels.
+
+### Shared dependencies
+
+| Consumer | Dependencies and ownership |
+| --- | --- |
+| `CreateMemoUseCase` | `App` passes `RoomMemoRepository` as `IMemoRepository` and a `PlayServicesGeofenceManager` as `GeofenceManager`. |
+| `MonitoringUseCase` | `App` passes the same repository, a separate `PlayServicesGeofenceManager`, a `LocationPermissionSource`, and the shared `GeofenceNotificationManager`. The use case reads the current location permissions, device location setting, and notification access from those sources when it builds `ReminderReadiness`. |
+| `RoomMemoRepository` | The repository builds the Room `Database` from the application context and delegates memo queries and writes to Room's generated `MemoDao`. |
+| `PlayServicesGeofenceManager` | Each instance obtains a Play Services geofencing client from the application context. It registers and removes geofences by memo ID and directs transition broadcasts to `GeofenceBroadcastReceiver`. |
+| `GeofenceNotificationManager` | The shared manager uses the application context and `NotificationManagerCompat` to read notification access, manage the reminder channel, and post reminders. |
+
+### Screens and background delivery
+
+| Entry point | Dependency wiring |
+| --- | --- |
+| `Home` | The Activity's factory calls `HomeViewModel.create(app)`. That method passes `RoomMemoRepository` and the shared `MonitoringUseCase`. The ViewModel reads memo lists through the repository and uses the use case for monitoring status, activation, and completion. |
+| `CreateMemo` | The Activity's factory passes an AndroidX `SavedStateHandle` and the shared `CreateMemoUseCase` to `CreateMemoViewModel`. The Activity reads permission and settings state through its own `LocationPermissionSource`, the system location service, and the shared notification manager. It passes the resulting `ReminderReadiness` to the ViewModel. |
+| `ViewMemo` | The Activity reads the memo ID from the launch intent and passes it, `RoomMemoRepository`, and the shared `MonitoringUseCase` to `ViewMemoViewModel`. The ViewModel loads details from the repository and uses the use case to mark the memo done. |
+| `MapActivity` | The Activity lazily creates its own `LocationPermissionSource` and passes it to `FusedLocationDataSource`, which implements `LocationDataSource` using Play Services. Google Maps supplies the map through `SupportMapFragment`. The selected coordinates return to `CreateMemo` through the Activity result. |
+| `LocationPermissionLauncher` | `Home`, `CreateMemo`, and `MapActivity` create this Activity result contract locally. For a foreground request, the contract creates a `LocationPermissionSource` with the supplied context to record that the request was made. |
+| `GeofenceBroadcastReceiver` | Android creates the receiver. It gets `App` from the broadcast context, reads the matching open memos directly from `RoomMemoRepository`, and passes them to `App.geofenceNotificationManager`. The notification carries the memo ID into `ViewMemo` via its launch intent. |
+
+The use cases share the `memoGeofenceChanges` mutex, which serializes memo creation, monitoring activation, and completion changes even though each use case has its own geofence manager instance.
+
+### Unit tests
+
+The JVM tests call the same use case constructors with `InMemoryMemoRepository` and `RecordingGeofenceManager`. The monitoring tests also use Mockito to supply permission and notification state and to intercept Android logging.

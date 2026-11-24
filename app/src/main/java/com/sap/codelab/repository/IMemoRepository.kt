@@ -10,22 +10,22 @@ internal interface IMemoRepository {
     /**
      * Saves the given memo to the database and returns its ID.
      */
-    fun saveMemo(memo: Memo): Long
+    suspend fun saveMemo(memo: Memo): Long
 
-    fun setRegistered(memoId: Long, isRegistered: Boolean)
+    suspend fun setRegistered(memoId: Long, isRegistered: Boolean)
 
     /**
      * @return all memos currently in the database.
      */
-    fun getAll(): List<Memo>
+    suspend fun getAll(): List<Memo>
 
     /**
      * @return all memos currently in the database, except those that have been marked as "done".
      */
-    fun getOpen(): List<Memo>
+    suspend fun getOpen(): List<Memo>
 
     /**
      * @return the memo whose id matches the given id.
      */
-    fun getMemoById(id: Long): Memo
+    suspend fun getMemoById(id: Long): Memo
 }

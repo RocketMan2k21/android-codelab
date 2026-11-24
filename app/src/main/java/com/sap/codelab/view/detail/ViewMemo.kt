@@ -15,7 +15,6 @@ import com.sap.codelab.R
 import com.sap.codelab.databinding.ActivityViewMemoBinding
 import com.sap.codelab.domain.model.hasLocation
 import com.sap.codelab.repository.App
-import com.sap.codelab.repository.RoomMemoRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -42,9 +41,10 @@ internal class ViewMemo : AppCompatActivity() {
         supportActionBar?.setHomeActionContentDescription(R.string.action_back)
 
         val memoId = intent.getLongExtra(BUNDLE_MEMO_ID, -1)
+        val app = application as App
         val factory = viewModelFactory {
             initializer {
-                ViewMemoViewModel(memoId, RoomMemoRepository, (application as App).monitoringUseCase)
+                ViewMemoViewModel(memoId, app.memoRepository, app.monitoringUseCase)
             }
         }
         val model = ViewModelProvider(this, factory)[ViewMemoViewModel::class.java]

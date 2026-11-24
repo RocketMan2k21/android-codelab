@@ -9,7 +9,7 @@ internal class InMemoryMemoRepository : IMemoRepository {
     private var nextId = 1L
     var saveFailure: Exception? = null
 
-    override fun saveMemo(memo: Memo): Long {
+    override suspend fun saveMemo(memo: Memo): Long {
         saveFailure?.let { throw it }
         val id = if (memo.id == 0L) nextId else memo.id
         nextId = maxOf(nextId, id + 1)
@@ -17,15 +17,15 @@ internal class InMemoryMemoRepository : IMemoRepository {
         return id
     }
 
-    override fun setRegistered(memoId: Long, isRegistered: Boolean) {
+    override suspend fun setRegistered(memoId: Long, isRegistered: Boolean) {
         memos[memoId] = memos.getValue(memoId).copy(isRegistered = isRegistered)
     }
 
-    override fun getAll(): List<Memo> = memos.values.map { it.copy() }
+    override suspend fun getAll(): List<Memo> = memos.values.map { it.copy() }
 
-    override fun getOpen(): List<Memo> = getAll().filterNot { it.isDone }
+    override suspend fun getOpen(): List<Memo> = getAll().filterNot { it.isDone }
 
-    override fun getMemoById(id: Long): Memo = memos.getValue(id).copy()
+    override suspend fun getMemoById(id: Long): Memo = memos.getValue(id).copy()
 }
 
 internal class RecordingGeofenceManager : GeofenceManager {

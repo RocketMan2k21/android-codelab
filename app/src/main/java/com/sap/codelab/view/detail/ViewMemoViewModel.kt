@@ -8,13 +8,11 @@ import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 import com.sap.codelab.repository.IMemoRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal class ViewMemoViewModel(
     private val memoId: Long,
@@ -37,7 +35,7 @@ internal class ViewMemoViewModel(
     }
 
     fun markDone() {
-        val current = state.value
+        val current = state.value // TODO: USE update{ }
         val memo = current.memo ?: return
         if (memo.isDone || current.isCompleting) return
         _state.value = current.copy(isCompleting = true)
@@ -57,7 +55,7 @@ internal class ViewMemoViewModel(
 
     private suspend fun readMemo(): Memo? {
         return try {
-            withContext(Dispatchers.IO) { repository.getMemoById(memoId) }
+            repository.getMemoById(memoId)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {

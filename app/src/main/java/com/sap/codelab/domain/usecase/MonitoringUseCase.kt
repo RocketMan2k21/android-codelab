@@ -10,10 +10,8 @@ import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.model.hasLocation
 import com.sap.codelab.repository.IMemoRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 internal val memoGeofenceChanges = Mutex()
 
@@ -45,16 +43,14 @@ internal class MonitoringUseCase(
 
     suspend fun activate(): Set<Long> = memoGeofenceChanges.withLock {
         if (!readRequirements().canMonitor) return@withLock emptySet()
-        val openMemos = withContext(Dispatchers.IO) { repository.getOpen() }
+        val openMemos = repository.getOpen()
         val failed = mutableSetOf<Long>()
         for (memo in openMemos) {
             if (!memo.hasLocation || memo.isDone || memo.isRegistered) continue
             try {
                 geofenceManager.register(memo)
 
-                withContext(Dispatchers.IO) {
-                    repository.setRegistered(memo.id, true)
-                }
+                repository.setRegistered(memo.id, true)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -66,13 +62,11 @@ internal class MonitoringUseCase(
     }
 
     suspend fun setCompleted(memoId: Long, completed: Boolean) = memoGeofenceChanges.withLock {
-        withContext(Dispatchers.IO) {
-            val memo = repository.getMemoById(memoId)
-            repository.saveMemo(memo.copy(isDone = completed))
-            if (completed && memo.hasLocation) {
-                geofenceManager.remove(memo.id.toString())
-                repository.setRegistered(memo.id, false)
-            }
+        val memo = repository.getMemoById(memoId)
+        repository.saveMemo(memo.copy(isDone = completed))
+        if (completed && memo.hasLocation) {
+            geofenceManager.remove(memo.id.toString())
+            repository.setRegistered(memo.id, false)
         }
     }
 }

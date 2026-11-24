@@ -1,6 +1,7 @@
 package com.sap.codelab.repository
 
 import android.app.Application
+import androidx.room.Room
 import com.sap.codelab.data.location.GeofenceNotificationManager
 import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.data.location.PlayServicesGeofenceManager
@@ -14,13 +15,20 @@ internal class App : Application() {
     lateinit var geofenceNotificationManager: GeofenceNotificationManager
         private set
 
+    val memoRepository by lazy {
+        val database = Room.databaseBuilder(this, Database::class.java, "codelab")
+            .fallbackToDestructiveMigration(true)
+            .build()
+        RoomMemoRepository(database)
+    }
+
     val createMemoUseCase by lazy {
-        CreateMemoUseCase(RoomMemoRepository, PlayServicesGeofenceManager(this))
+        CreateMemoUseCase(memoRepository, PlayServicesGeofenceManager(this))
     }
 
     val monitoringUseCase by lazy {
         MonitoringUseCase(
-            repository = RoomMemoRepository,
+            repository = memoRepository,
             geofenceManager = PlayServicesGeofenceManager(this),
             locationPermissions = LocationPermissionSource(this),
             notifications = geofenceNotificationManager
@@ -29,7 +37,6 @@ internal class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        RoomMemoRepository.initialize(this)
         geofenceNotificationManager = GeofenceNotificationManager(this)
     }
 }

@@ -7,16 +7,13 @@ import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 import com.sap.codelab.repository.App
 import com.sap.codelab.repository.IMemoRepository
-import com.sap.codelab.repository.RoomMemoRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal class HomeViewModel(
     private val repository: IMemoRepository,
@@ -91,10 +88,8 @@ internal class HomeViewModel(
 
     private suspend fun reload() {
         val showAll = isShowingAll
-        val (openMemos, displayedMemos) = withContext(Dispatchers.IO) {
-            val open = repository.getOpen()
-            open to if (showAll) repository.getAll() else open
-        }
+        val openMemos = repository.getOpen()
+        val displayedMemos = if (showAll) repository.getAll() else openMemos
         if (showAll == isShowingAll) _memos.value = displayedMemos
         val status = monitoring.status(openMemos)
         val state = _monitoringState.value
@@ -105,6 +100,6 @@ internal class HomeViewModel(
     }
 
     companion object {
-        fun create(app: App): HomeViewModel = HomeViewModel(RoomMemoRepository, app.monitoringUseCase)
+        fun create(app: App): HomeViewModel = HomeViewModel(app.memoRepository, app.monitoringUseCase)
     }
 }

@@ -16,29 +16,29 @@ internal interface MemoDao {
      * @return all memos that are currently in the database.
      */
     @Query("SELECT * FROM memo")
-    fun getAll(): List<Memo>
+    suspend fun getAll(): List<Memo>
 
     /**
      * @return all memos that are currently in the database and have not yet been marked as "done".
      */
     @Query("SELECT * FROM memo WHERE isDone = 0")
-    fun getOpen(): List<Memo>
+    suspend fun getOpen(): List<Memo>
 
     @Query("SELECT * FROM memo WHERE isDone = 0 AND id IN (:memoIds)")
-    fun getOpenByIds(memoIds: List<Long>): List<Memo>
+    suspend fun getOpenByIds(memoIds: List<Long>): List<Memo>
 
     /**
      * Inserts the given Memo into the database. We currently do not support updating of memos.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insert(memo: Memo): Long
+    suspend fun insert(memo: Memo): Long
 
     @Query("UPDATE memo SET isRegistered = :isRegistered WHERE id = :memoId")
-    fun setRegistered(memoId: Long, isRegistered: Boolean)
+    suspend fun setRegistered(memoId: Long, isRegistered: Boolean)
 
     /**
      * @return the memo whose id matches the given id.
      */
     @Query("SELECT * FROM memo WHERE id = :memoId")
-    fun getMemoById(memoId: Long): Memo
+    suspend fun getMemoById(memoId: Long): Memo
 }

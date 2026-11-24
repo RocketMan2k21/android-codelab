@@ -1,42 +1,21 @@
 package com.sap.codelab.repository
 
-import androidx.room.Room
-import android.content.Context
-import androidx.annotation.WorkerThread
 import com.sap.codelab.domain.model.Memo
 
-private const val DATABASE_NAME: String = "codelab"
+/** Provides access to memos stored in the supplied Room database. */
+internal class RoomMemoRepository(database: Database) : IMemoRepository {
+    private val dao = database.getMemoDao()
 
-/**
- * The repository is used to retrieve data from a data source.
- */
-internal object RoomMemoRepository : IMemoRepository {
+    override suspend fun saveMemo(memo: Memo): Long = dao.insert(memo)
 
-    private lateinit var database: Database
+    override suspend fun setRegistered(memoId: Long, isRegistered: Boolean) =
+        dao.setRegistered(memoId, isRegistered)
 
-    fun initialize(applicationContext: Context) {
-        database = Room
-            .databaseBuilder(applicationContext, Database::class.java, DATABASE_NAME)
-            .fallbackToDestructiveMigration(true)
-            .build()
-    }
+    override suspend fun getOpen(): List<Memo> = dao.getOpen()
 
-    @WorkerThread
-    override fun saveMemo(memo: Memo): Long = database.getMemoDao().insert(memo)
+    suspend fun getOpenByIds(memoIds: List<Long>): List<Memo> = dao.getOpenByIds(memoIds)
 
-    @WorkerThread
-    override fun setRegistered(memoId: Long, isRegistered: Boolean) =
-        database.getMemoDao().setRegistered(memoId, isRegistered)
+    override suspend fun getAll(): List<Memo> = dao.getAll()
 
-    @WorkerThread
-    override fun getOpen(): List<Memo> = database.getMemoDao().getOpen()
-
-    @WorkerThread
-    fun getOpenByIds(memoIds: List<Long>): List<Memo> = database.getMemoDao().getOpenByIds(memoIds)
-
-    @WorkerThread
-    override fun getAll(): List<Memo> = database.getMemoDao().getAll()
-
-    @WorkerThread
-    override fun getMemoById(id: Long): Memo = database.getMemoDao().getMemoById(id)
+    override suspend fun getMemoById(id: Long): Memo = dao.getMemoById(id)
 }

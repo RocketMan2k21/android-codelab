@@ -370,20 +370,20 @@ class CreateMemoPermissionTest {
         val registeredMemos = mutableListOf<Memo>()
 
         private val repository = object : IMemoRepository {
-            override fun saveMemo(memo: Memo): Long {
+            override suspend fun saveMemo(memo: Memo): Long {
                 check(!failSave) { "Write failed" }
                 savedMemos.add(memo)
                 return MEMO_ID
             }
 
-            override fun setRegistered(memoId: Long, isRegistered: Boolean) {
+            override suspend fun setRegistered(memoId: Long, isRegistered: Boolean) {
                 assertEquals(MEMO_ID, memoId)
                 savedMemos[0] = savedMemos.single().copy(isRegistered = isRegistered)
             }
 
-            override fun getAll(): List<Memo> = error("Unexpected query")
-            override fun getOpen(): List<Memo> = error("Unexpected query")
-            override fun getMemoById(id: Long): Memo = error("Unexpected query")
+            override suspend fun getAll(): List<Memo> = error("Unexpected query")
+            override suspend fun getOpen(): List<Memo> = error("Unexpected query")
+            override suspend fun getMemoById(id: Long): Memo = error("Unexpected query")
         }
 
         private val geofenceManager = object : GeofenceManager {
