@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "GeofenceReceiver"
 
-/** Handles dwell events and shows reminders for memos that are still open. */
+/** Handles geofence entry events and shows reminders for memos that are still open. */
 internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val event = GeofencingEvent.fromIntent(intent) ?: return
@@ -23,7 +23,7 @@ internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
             Log.w(TAG, GeofenceStatusCodes.getStatusCodeString(event.errorCode))
             return
         }
-        if (event.geofenceTransition != Geofence.GEOFENCE_TRANSITION_DWELL) return
+        if (event.geofenceTransition != Geofence.GEOFENCE_TRANSITION_ENTER) return
 
         val memoIds = event.triggeringGeofences.orEmpty().mapNotNull { it.requestId.toLongOrNull() }
         if (memoIds.isEmpty()) return

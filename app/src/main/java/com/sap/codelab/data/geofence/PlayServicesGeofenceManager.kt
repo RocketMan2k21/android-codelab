@@ -16,11 +16,10 @@ import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.tasks.await
 
 private const val GEOFENCE_RADIUS_METERS = 200f
-private const val DWELL_DELAY_MILLIS = 30_000
 
 private const val TAG = "PlayServicesGeofenceManager"
 
-/** Registers dwell geofences with Google Play services using memo IDs as request IDs. */
+/** Registers geofence entry events with Google Play services using memo IDs as request IDs. */
 internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
     private val applicationContext = context.applicationContext
     private val client = LocationServices.getGeofencingClient(applicationContext)
@@ -58,11 +57,10 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
             .setRequestId(memo.id.toString())
             .setCircularRegion(memo.reminderLatitude, memo.reminderLongitude, GEOFENCE_RADIUS_METERS)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_DWELL) // Using dwell with custom delay to get rid of spam
-            .setLoiteringDelay(DWELL_DELAY_MILLIS)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
             .build()
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
             .addGeofence(geofence)
             .build()
 
