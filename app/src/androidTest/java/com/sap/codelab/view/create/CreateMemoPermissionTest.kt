@@ -1,8 +1,14 @@
 package com.sap.codelab.view.create
 
 import android.os.Build
+import android.os.Bundle
+import android.widget.EditText
+import android.widget.Spinner
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sap.codelab.R
 import com.sap.codelab.data.location.GeofenceManager
 import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.LocationPermission
@@ -11,7 +17,7 @@ import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.repository.IMemoRepository
-import com.sap.codelab.view.create.CreateMemoViewModel.RationaleAction
+import com.sap.codelab.view.create.CreateMemoViewModel.SaveResult
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -20,6 +26,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,31 +34,106 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CreateMemoPermissionTest {
     @Test
-    fun settingsDenialAfterRecreationReturnsToRationaleUntilUserChoosesToSave() = onMain {
+    fun activityRecreationKeepsFormAndCurrentRationale() {
+        ActivityScenario.launch(CreateMemo::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.findViewById<EditText>(R.id.memo_title).setText("Title")
+                activity.findViewById<EditText>(R.id.memo_description).setText("Description")
+                activity.findViewById<Spinner>(R.id.memo_priority).setSelection(0)
+            }
+            scenario.onActivity { activity ->
+                val model = ViewModelProvider(activity)[CreateMemoViewModel::class.java]
+                model.selectLocation(Location(42.0, 19.0))
+                model.saveMemo(preciseOnly.copy(location = preciseOnly.location.copy(
+                    isPreciseLocationEnabled = false
+                )))
+            }
+
+            scenario.recreate()
+
+            scenario.onActivity { activity ->
+                assertEquals("Title", activity.findViewById<EditText>(R.id.memo_title).text.toString())
+                assertEquals("Description", activity.findViewById<EditText>(R.id.memo_description).text.toString())
+                assertEquals(0, activity.findViewById<Spinner>(R.id.memo_priority).selectedItemPosition)
+                val dialog = activity.supportFragmentManager.fragments.filterIsInstance<ReminderRequirementDialog>()
+                    .single()
+                assertEquals(ReminderRequirement.PRECISE_LOCATION, dialog.requirement)
+            }
+        }
+    }
+
+    @Test
+    fun activityDismissesRestoredDialogWhenThereIsNoActiveSave() {
+        ActivityScenario.launch(CreateMemo::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                ReminderRequirementDialog.newInstance(
+                    ReminderRequirement.BACKGROUND_LOCATION,
+                    R.string.background_location_settings_title,
+                    "Background location",
+                ).showNow(activity.supportFragmentManager, ReminderRequirementDialog.TAG)
+            }
+
+            scenario.recreate()
+
+            scenario.onActivity { activity ->
+                val dialogs = activity.supportFragmentManager.fragments.filterIsInstance<ReminderRequirementDialog>()
+                assertTrue(dialogs.isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun processRecreationRestoresOnlyTheDraftAndRequiresNewSave() = onMain {
         val fixture = Fixture(Build.VERSION_CODES.R)
         val original = fixture.newViewModel()
-        original.selectLocation(Location(0.0, 0.0))
-        original.updateMemo("Original title", "Description", 2)
+        val draft = MemoDraft("Original title", "Description", 2, Location(0.0, 0.0))
+        original.selectLocation(checkNotNull(draft.location))
+        original.updateDraft(draft.title, draft.description, draft.priority)
         original.saveMemo(preciseOnly)
-        assertEquals(SaveState.BACKGROUND_RATIONALE, original.saveState.value)
-        original.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
-        assertTrue(original.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
+        original.continueFrom(ReminderRequirement.BACKGROUND_LOCATION, ReminderSystemAction.OPEN_LOCATION_SETTINGS)
 
-        val restoredState = SavedStateHandle(fixture.state.keys().associateWith { key -> fixture.state.get<Any>(key) })
-        val restored = fixture.newViewModel(restoredState)
-        assertFalse(restored.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
-        restored.saveMemo(allPermissions)
-        restored.onPermissionResult(SaveState.OPENING_SETTINGS, preciseOnly)
-        restored.onPermissionResult(SaveState.OPENING_SETTINGS, allPermissions)
-        assertEquals(SaveState.BACKGROUND_RATIONALE, restored.saveState.value)
+        assertEquals(setOf("memoDraft"), fixture.state.keys())
+        val savedDraft = checkNotNull(fixture.state.get<Bundle>("memoDraft"))
+        assertEquals(setOf("title", "description", "priority", "location"), savedDraft.keySet())
+        val restored = fixture.newViewModel(SavedStateHandle(mapOf("memoDraft" to savedDraft)))
+
+        assertEquals(draft, restored.draft)
+        assertEquals(SaveState.Ready, restored.saveState.value)
+        assertFalse(restored.claimSystemLaunch(ReminderSystemAction.OPEN_LOCATION_SETTINGS))
+        restored.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SETTINGS, allPermissions)
+        restored.onRationaleResult(ReminderRequirement.BACKGROUND_LOCATION, RationaleAction.SKIP)
+        assertEquals(SaveState.Ready, restored.saveState.value)
         assertTrue(fixture.savedMemos.isEmpty())
-        assertFalse(restored.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
 
-        restored.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.SKIP)
-        restored.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
-        assertEquals("Original title", fixture.savedMemos.single().title)
-        assertEquals(2, fixture.savedMemos.single().priority)
+        restored.saveMemo(preciseOnly)
+        restored.assertRationale(ReminderRequirement.BACKGROUND_LOCATION)
+        restored.onRationaleResult(ReminderRequirement.BACKGROUND_LOCATION, RationaleAction.SKIP)
+        restored.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
+        assertEquals(draft.toMemo(), fixture.savedMemos.single())
         assertTrue(fixture.registeredMemos.isEmpty())
+    }
+
+    @Test
+    fun retainedViewModelDoesNotRelaunchSettingsAndProcessesItsResult() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.R)
+        val model = fixture.newViewModelWithLocation()
+        model.saveMemo(preciseOnly)
+        model.continueFrom(ReminderRequirement.BACKGROUND_LOCATION, ReminderSystemAction.OPEN_LOCATION_SETTINGS)
+
+        val reattachedState = model.saveState.first()
+        assertEquals(
+            SaveState.AwaitingReminder(ReminderStep.AwaitSystemResult(
+                ReminderSystemAction.OPEN_LOCATION_SETTINGS, launched = true
+            )),
+            reattachedState
+        )
+        assertFalse(model.claimSystemLaunch(ReminderSystemAction.OPEN_LOCATION_SETTINGS))
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SERVICES, allPermissions)
+        assertSame(reattachedState, model.saveState.value)
+
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SETTINGS, allPermissions)
+        model.awaitSave(SaveState.Saved(SaveResult.WITH_REMINDER))
+        fixture.assertRegisteredMemo()
     }
 
     @Test
@@ -59,22 +141,22 @@ class CreateMemoPermissionTest {
         val fixture = Fixture(Build.VERSION_CODES.R)
         val model = fixture.newViewModel()
         model.selectLocation(Location(42.0, 19.0))
-        model.updateMemo("Title", "Description", 1)
+        model.updateDraft("Title", "Description", 1)
         model.saveMemo(preciseOnly)
-        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
-        assertTrue(model.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
-        model.onPermissionResult(
-            SaveState.OPENING_SETTINGS,
+        model.onRationaleResult(ReminderRequirement.BACKGROUND_LOCATION, RationaleAction.CONTINUE)
+        assertTrue(model.claimSystemLaunch(ReminderSystemAction.OPEN_LOCATION_SETTINGS))
+        model.onSystemResult(
+            ReminderSystemAction.OPEN_LOCATION_SETTINGS,
             allPermissions.copy(location = allPermissions.location.copy(isPreciseLocationEnabled = false))
         )
-        assertEquals(SaveState.BACKGROUND_RATIONALE, model.saveState.value)
+        model.assertRationale(ReminderRequirement.BACKGROUND_LOCATION)
         assertTrue(fixture.savedMemos.isEmpty())
 
-        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.CONTINUE)
-        assertTrue(model.claimPermissionLaunch(SaveState.OPENING_SETTINGS))
-        model.onPermissionResult(SaveState.OPENING_SETTINGS, allPermissions)
+        model.onRationaleResult(ReminderRequirement.BACKGROUND_LOCATION, RationaleAction.CONTINUE)
+        assertTrue(model.claimSystemLaunch(ReminderSystemAction.OPEN_LOCATION_SETTINGS))
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SETTINGS, allPermissions)
 
-        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        model.awaitSave(SaveState.Saved(SaveResult.WITH_REMINDER))
         fixture.assertRegisteredMemo()
     }
 
@@ -83,18 +165,18 @@ class CreateMemoPermissionTest {
         val fixture = Fixture(Build.VERSION_CODES.Q)
         val model = fixture.newViewModel()
         model.selectLocation(Location(42.0, 19.0))
-        model.updateMemo("Title", "Description", 1)
+        model.updateDraft("Title", "Description", 1)
         model.saveMemo(preciseOnly.copy(location = preciseOnly.location.copy(isPreciseLocationEnabled = false)))
-        assertEquals(SaveState.FOREGROUND_RATIONALE, model.saveState.value)
-        model.onRationaleResult(SaveState.FOREGROUND_RATIONALE, RationaleAction.CONTINUE)
-        assertEquals(SaveState.REQUESTING_FOREGROUND, model.saveState.value)
-        assertTrue(model.claimPermissionLaunch(SaveState.REQUESTING_FOREGROUND))
-        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, preciseOnly)
-        assertEquals(SaveState.REQUESTING_BACKGROUND, model.saveState.value)
-        assertTrue(model.claimPermissionLaunch(SaveState.REQUESTING_BACKGROUND))
-        model.onPermissionResult(SaveState.REQUESTING_BACKGROUND, allPermissions)
+        model.assertRationale(ReminderRequirement.PRECISE_LOCATION)
+        model.onRationaleResult(ReminderRequirement.PRECISE_LOCATION, RationaleAction.CONTINUE)
+        model.assertSystemAction(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION)
+        assertTrue(model.claimSystemLaunch(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION))
+        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION, preciseOnly)
+        model.assertSystemAction(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION)
+        assertTrue(model.claimSystemLaunch(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION))
+        model.onSystemResult(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION, allPermissions)
 
-        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        model.awaitSave(SaveState.Saved(SaveResult.WITH_REMINDER))
         fixture.assertRegisteredMemo()
     }
 
@@ -102,10 +184,10 @@ class CreateMemoPermissionTest {
     fun memoWithoutLocationUsesPlainSaveState() = onMain {
         val fixture = Fixture(Build.VERSION_CODES.R)
         val model = fixture.newViewModel()
-        model.updateMemo("Title", "Description", 1)
+        model.updateDraft("Title", "Description", 1)
         model.saveMemo(allPermissions)
 
-        model.awaitSave(SaveState.SAVED)
+        model.awaitSave(SaveState.Saved(SaveResult.SAVED))
         assertEquals(1, fixture.savedMemos.size)
         assertTrue(fixture.registeredMemos.isEmpty())
     }
@@ -115,13 +197,13 @@ class CreateMemoPermissionTest {
         val fixture = Fixture(Build.VERSION_CODES.Q)
         val model = fixture.newViewModel()
         model.selectLocation(Location(42.0, 19.0))
-        model.updateMemo("Title", "Description", 1)
+        model.updateDraft("Title", "Description", 1)
         model.saveMemo(preciseOnly)
-        assertEquals(SaveState.REQUESTING_BACKGROUND, model.saveState.value)
-        assertTrue(model.claimPermissionLaunch(SaveState.REQUESTING_BACKGROUND))
-        model.onPermissionResult(SaveState.REQUESTING_BACKGROUND, preciseOnly)
+        model.assertSystemAction(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION)
+        assertTrue(model.claimSystemLaunch(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION))
+        model.onSystemResult(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION, preciseOnly)
 
-        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        model.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
         assertEquals(1, fixture.savedMemos.size)
         assertTrue(fixture.registeredMemos.isEmpty())
     }
@@ -132,11 +214,11 @@ class CreateMemoPermissionTest {
         val model = fixture.newViewModel()
         val location = Location(42.123456789, -19.123456789)
         model.selectLocation(location)
-        model.updateMemo("Title", "Description", 1)
+        model.updateDraft("Title", "Description", 1)
         model.saveMemo(preciseOnly)
-        model.onRationaleResult(SaveState.BACKGROUND_RATIONALE, RationaleAction.SKIP)
+        model.onRationaleResult(ReminderRequirement.BACKGROUND_LOCATION, RationaleAction.SKIP)
 
-        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        model.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
         assertEquals(location.lat, fixture.savedMemos.single().reminderLatitude, 0.0)
         assertEquals(location.lon, fixture.savedMemos.single().reminderLongitude, 0.0)
         assertTrue(fixture.registeredMemos.isEmpty())
@@ -155,25 +237,25 @@ class CreateMemoPermissionTest {
             isPreciseLocationEnabled = false
         ))
         model.saveMemo(noLocationGrant)
-        model.continueFrom(SaveState.FOREGROUND_RATIONALE, SaveState.REQUESTING_FOREGROUND)
-        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, foregroundOnly)
+        model.continueFrom(ReminderRequirement.PRECISE_LOCATION, ReminderSystemAction.REQUEST_FOREGROUND_LOCATION)
+        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION, foregroundOnly)
 
-        model.continueFrom(SaveState.BACKGROUND_RATIONALE, SaveState.OPENING_SETTINGS)
+        model.continueFrom(ReminderRequirement.BACKGROUND_LOCATION, ReminderSystemAction.OPEN_LOCATION_SETTINGS)
         val locationOff = foregroundOnly.copy(location = allPermissions.location)
-        model.onPermissionResult(SaveState.OPENING_SETTINGS, locationOff)
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SETTINGS, locationOff)
 
-        model.continueFrom(SaveState.LOCATION_SERVICES_RATIONALE, SaveState.OPENING_LOCATION_SERVICES)
-        model.onPermissionResult(SaveState.OPENING_LOCATION_SERVICES, locationOff)
-        assertEquals(SaveState.LOCATION_SERVICES_RATIONALE, model.saveState.value)
-        assertFalse(model.claimPermissionLaunch(SaveState.OPENING_LOCATION_SERVICES))
+        model.continueFrom(ReminderRequirement.LOCATION_SERVICES, ReminderSystemAction.OPEN_LOCATION_SERVICES)
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SERVICES, locationOff)
+        model.assertRationale(ReminderRequirement.LOCATION_SERVICES)
+        assertFalse(model.claimSystemLaunch(ReminderSystemAction.OPEN_LOCATION_SERVICES))
         assertTrue(fixture.savedMemos.isEmpty())
 
-        model.continueFrom(SaveState.LOCATION_SERVICES_RATIONALE, SaveState.OPENING_LOCATION_SERVICES)
-        model.onPermissionResult(SaveState.OPENING_LOCATION_SERVICES, locationOff.copy(locationServicesEnabled = true))
-        model.continueFrom(SaveState.NOTIFICATION_PERMISSION_RATIONALE, SaveState.REQUESTING_NOTIFICATIONS)
-        model.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, allPermissions)
+        model.continueFrom(ReminderRequirement.LOCATION_SERVICES, ReminderSystemAction.OPEN_LOCATION_SERVICES)
+        model.onSystemResult(ReminderSystemAction.OPEN_LOCATION_SERVICES, locationOff.copy(locationServicesEnabled = true))
+        model.continueFrom(ReminderRequirement.NOTIFICATION_PERMISSION, ReminderSystemAction.REQUEST_NOTIFICATIONS)
+        model.onSystemResult(ReminderSystemAction.REQUEST_NOTIFICATIONS, allPermissions)
 
-        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        model.awaitSave(SaveState.Saved(SaveResult.WITH_REMINDER))
         fixture.assertRegisteredMemo()
     }
 
@@ -183,9 +265,9 @@ class CreateMemoPermissionTest {
         val model = fixture.newViewModelWithLocation()
         val approximate = preciseOnly.copy(location = preciseOnly.location.copy(isPreciseLocationEnabled = false))
         model.saveMemo(approximate)
-        model.continueFrom(SaveState.FOREGROUND_RATIONALE, SaveState.REQUESTING_FOREGROUND)
-        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, approximate)
-        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        model.continueFrom(ReminderRequirement.PRECISE_LOCATION, ReminderSystemAction.REQUEST_FOREGROUND_LOCATION)
+        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION, approximate)
+        model.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
         assertEquals(1, fixture.savedMemos.size)
         assertTrue(fixture.registeredMemos.isEmpty())
 
@@ -193,9 +275,9 @@ class CreateMemoPermissionTest {
         val notificationModel = notificationFixture.newViewModelWithLocation()
         val missingPermission = allPermissions.copy(notificationAccess = NotificationAccess.PERMISSION_REQUIRED)
         notificationModel.saveMemo(missingPermission)
-        notificationModel.continueFrom(SaveState.NOTIFICATION_PERMISSION_RATIONALE, SaveState.REQUESTING_NOTIFICATIONS)
-        notificationModel.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, missingPermission)
-        notificationModel.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        notificationModel.continueFrom(ReminderRequirement.NOTIFICATION_PERMISSION, ReminderSystemAction.REQUEST_NOTIFICATIONS)
+        notificationModel.onSystemResult(ReminderSystemAction.REQUEST_NOTIFICATIONS, missingPermission)
+        notificationModel.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
         assertEquals(1, notificationFixture.savedMemos.size)
         assertTrue(notificationFixture.registeredMemos.isEmpty())
     }
@@ -208,9 +290,9 @@ class CreateMemoPermissionTest {
             locationServicesEnabled = false,
             notificationAccess = NotificationAccess.PERMISSION_REQUIRED
         ))
-        assertEquals(SaveState.LOCATION_SERVICES_RATIONALE, model.saveState.value)
-        model.onRationaleResult(SaveState.LOCATION_SERVICES_RATIONALE, RationaleAction.SKIP)
-        model.awaitSave(SaveState.SAVED_WITHOUT_REMINDER)
+        model.assertRationale(ReminderRequirement.LOCATION_SERVICES)
+        model.onRationaleResult(ReminderRequirement.LOCATION_SERVICES, RationaleAction.SKIP)
+        model.awaitSave(SaveState.Saved(SaveResult.WITHOUT_REMINDER))
         assertEquals(1, fixture.savedMemos.size)
         assertTrue(fixture.registeredMemos.isEmpty())
     }
@@ -222,23 +304,55 @@ class CreateMemoPermissionTest {
         val appBlocked = allPermissions.copy(notificationAccess = NotificationAccess.APP_DISABLED)
         val channelBlocked = appBlocked.copy(notificationAccess = NotificationAccess.CHANNEL_DISABLED)
         model.saveMemo(appBlocked)
-        model.continueFrom(SaveState.APP_NOTIFICATIONS_RATIONALE, SaveState.OPENING_APP_NOTIFICATIONS)
-        model.onPermissionResult(SaveState.OPENING_APP_NOTIFICATIONS, channelBlocked)
-        model.continueFrom(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, SaveState.OPENING_CHANNEL_NOTIFICATIONS)
-        model.onPermissionResult(SaveState.OPENING_CHANNEL_NOTIFICATIONS, channelBlocked)
-        assertEquals(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, model.saveState.value)
+        model.continueFrom(ReminderRequirement.APP_NOTIFICATIONS, ReminderSystemAction.OPEN_APP_NOTIFICATIONS)
+        model.onSystemResult(ReminderSystemAction.OPEN_APP_NOTIFICATIONS, channelBlocked)
+        model.continueFrom(ReminderRequirement.CHANNEL_NOTIFICATIONS, ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS)
+        model.onSystemResult(ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS, channelBlocked)
+        model.assertRationale(ReminderRequirement.CHANNEL_NOTIFICATIONS)
         assertTrue(fixture.savedMemos.isEmpty())
 
-        model.continueFrom(SaveState.CHANNEL_NOTIFICATIONS_RATIONALE, SaveState.OPENING_CHANNEL_NOTIFICATIONS)
-        model.onPermissionResult(SaveState.OPENING_CHANNEL_NOTIFICATIONS, allPermissions)
-        model.awaitSave(SaveState.SAVED_WITH_REMINDER)
+        model.continueFrom(ReminderRequirement.CHANNEL_NOTIFICATIONS, ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS)
+        model.onSystemResult(ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS, allPermissions)
+        model.awaitSave(SaveState.Saved(SaveResult.WITH_REMINDER))
         fixture.assertRegisteredMemo()
     }
 
-    private fun CreateMemoViewModel.continueFrom(rationale: SaveState, launch: SaveState) {
-        assertEquals(rationale, saveState.value)
-        onRationaleResult(rationale, RationaleAction.CONTINUE)
-        assertTrue(claimPermissionLaunch(launch))
+    @Test
+    fun writeFailureKeepsDraftForRetryAndSuccessClearsIt() = onMain {
+        val fixture = Fixture(Build.VERSION_CODES.R)
+        val model = fixture.newViewModel()
+        model.updateDraft("Title", "Description", 2)
+        fixture.failSave = true
+        model.saveMemo(preciseOnly)
+
+        model.awaitSave(SaveState.Failed)
+        assertEquals(MemoDraft("Title", "Description", 2), model.draft)
+        assertEquals(setOf("memoDraft"), fixture.state.keys())
+
+        fixture.failSave = false
+        model.acknowledgeSaveFailure()
+        model.saveMemo(preciseOnly)
+        model.awaitSave(SaveState.Saved(SaveResult.SAVED))
+        assertEquals(model.draft.toMemo(), fixture.savedMemos.single())
+        assertTrue(fixture.state.keys().isEmpty())
+    }
+
+    private fun CreateMemoViewModel.continueFrom(
+        requirement: ReminderRequirement,
+        action: ReminderSystemAction,
+    ) {
+        assertRationale(requirement)
+        onRationaleResult(requirement, RationaleAction.CONTINUE)
+        assertSystemAction(action)
+        assertTrue(claimSystemLaunch(action))
+    }
+
+    private fun CreateMemoViewModel.assertRationale(requirement: ReminderRequirement) {
+        assertEquals(SaveState.AwaitingReminder(ReminderStep.ShowRationale(requirement)), saveState.value)
+    }
+
+    private fun CreateMemoViewModel.assertSystemAction(action: ReminderSystemAction) {
+        assertEquals(SaveState.AwaitingReminder(ReminderStep.AwaitSystemResult(action)), saveState.value)
     }
 
     private fun onMain(test: suspend () -> Unit) {
@@ -251,11 +365,13 @@ class CreateMemoPermissionTest {
 
     private class Fixture(private val sdkInt: Int) {
         val state = SavedStateHandle()
+        var failSave = false
         val savedMemos = mutableListOf<Memo>()
         val registeredMemos = mutableListOf<Memo>()
 
         private val repository = object : IMemoRepository {
             override fun saveMemo(memo: Memo): Long {
+                check(!failSave) { "Write failed" }
                 savedMemos.add(memo)
                 return MEMO_ID
             }
@@ -290,7 +406,7 @@ class CreateMemoPermissionTest {
 
         fun newViewModelWithLocation() = newViewModel().apply {
             selectLocation(Location(42.0, 19.0))
-            updateMemo("Title", "Description", 1)
+            updateDraft("Title", "Description", 1)
         }
     }
 

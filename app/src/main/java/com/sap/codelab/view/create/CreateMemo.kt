@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +19,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.location.LocationManagerCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
@@ -30,8 +33,7 @@ import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.databinding.ActivityCreateMemoBinding
 import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.repository.App
-import com.sap.codelab.utils.extensions.empty
-import com.sap.codelab.view.create.CreateMemoViewModel.RationaleAction
+import com.sap.codelab.view.create.CreateMemoViewModel.SaveResult
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import com.sap.codelab.view.map.LocationPermissionLauncher
 import com.sap.codelab.view.map.MapActivity
@@ -54,26 +56,26 @@ internal class CreateMemo : AppCompatActivity() {
     }
 
     private val requestForegroundLocation = registerForActivityResult(LocationPermissionLauncher()) {
-        model.onPermissionResult(SaveState.REQUESTING_FOREGROUND, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION, reminderReadiness())
     }
 
     private val requestBackgroundLocation = registerForActivityResult(
         LocationPermissionLauncher(LocationPermissionLauncher.Mode.BACKGROUND)
     ) {
-        model.onPermissionResult(SaveState.REQUESTING_BACKGROUND, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION, reminderReadiness())
     }
 
-    private val openLocationSettings = settingsLauncher(SaveState.OPENING_SETTINGS)
-    private val openLocationServices = settingsLauncher(SaveState.OPENING_LOCATION_SERVICES)
-    private val openAppNotifications = settingsLauncher(SaveState.OPENING_APP_NOTIFICATIONS)
-    private val openChannelNotifications = settingsLauncher(SaveState.OPENING_CHANNEL_NOTIFICATIONS)
+    private val openLocationSettings = settingsLauncher(ReminderSystemAction.OPEN_LOCATION_SETTINGS)
+    private val openLocationServices = settingsLauncher(ReminderSystemAction.OPEN_LOCATION_SERVICES)
+    private val openAppNotifications = settingsLauncher(ReminderSystemAction.OPEN_APP_NOTIFICATIONS)
+    private val openChannelNotifications = settingsLauncher(ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS)
     private val requestNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        model.onPermissionResult(SaveState.REQUESTING_NOTIFICATIONS, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_NOTIFICATIONS, reminderReadiness())
     }
 
-    private fun settingsLauncher(state: SaveState) =
+    private fun settingsLauncher(action: ReminderSystemAction) =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            model.onPermissionResult(state, reminderReadiness())
+            model.onSystemResult(action, reminderReadiness())
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,95 +90,127 @@ internal class CreateMemo : AppCompatActivity() {
         }
         model = ViewModelProvider(this, factory)[CreateMemoViewModel::class.java]
         supportFragmentManager.setFragmentResultListener(ReminderRequirementDialog.RESULT_KEY, this) { _, result ->
-            val state = SaveState.valueOf(checkNotNull(result.getString(ReminderRequirementDialog.STATE_KEY)))
-            val action = RationaleAction.valueOf(checkNotNull(result.getString(ReminderRequirementDialog.ACTION_KEY)))
-            model.onRationaleResult(state, action)
+            val requirement = ReminderRequirementDialog.readRequirement(result) ?: return@setFragmentResultListener
+            val action = RationaleAction.entries.firstOrNull {
+                it.name == result.getString(ReminderRequirementDialog.ACTION_KEY)
+            } ?: return@setFragmentResultListener
+            model.onRationaleResult(requirement, action)
         }
-        binding.contentCreateMemo.run {
-            memoOptions.isVisible = true
-            memoPriority.adapter = ArrayAdapter(
-                this@CreateMemo,
-                android.R.layout.simple_spinner_item,
-                PriorityOption.entries.map { getString(it.label) }
-            ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            if (savedInstanceState == null) {
-                memoPriority.setSelection(PriorityOption.MEDIUM.ordinal)
-            }
-            memoLocation.setOnClickListener {
-                if (model.saveState.value == SaveState.READY) {
-                    selectLocation.launch(MapActivity.createIntent(this@CreateMemo, model.selectedLocation))
-                }
-            }
-        }
-        showSelectedLocation()
+        bindForm()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                model.saveState.collect { state ->
-                    invalidateOptionsMenu()
-                    when (state) {
-                        SaveState.FOREGROUND_RATIONALE, SaveState.BACKGROUND_RATIONALE,
-                        SaveState.LOCATION_SERVICES_RATIONALE, SaveState.NOTIFICATION_PERMISSION_RATIONALE,
-                        SaveState.APP_NOTIFICATIONS_RATIONALE, SaveState.CHANNEL_NOTIFICATIONS_RATIONALE ->
-                            showRequirementDialog(state)
-                        SaveState.REQUESTING_FOREGROUND, SaveState.REQUESTING_BACKGROUND, SaveState.OPENING_SETTINGS,
-                        SaveState.OPENING_LOCATION_SERVICES, SaveState.REQUESTING_NOTIFICATIONS,
-                        SaveState.OPENING_APP_NOTIFICATIONS, SaveState.OPENING_CHANNEL_NOTIFICATIONS ->
-                            launchRequirementStep(state)
-                        SaveState.SAVED, SaveState.SAVED_WITH_REMINDER, SaveState.SAVED_WITHOUT_REMINDER -> {
-                            val message = when (state) {
-                                SaveState.SAVED_WITH_REMINDER -> R.string.memo_saved_with_reminder
-                                SaveState.SAVED_WITHOUT_REMINDER -> R.string.memo_saved_without_reminder
-                                else -> R.string.memo_saved
-                            }
-                            Toast.makeText(this@CreateMemo, message, Toast.LENGTH_LONG).show()
-                            setResult(RESULT_OK)
-                            finish()
-                        }
-                        SaveState.FAILED -> {
-                            Toast.makeText(this@CreateMemo, R.string.memo_save_error, Toast.LENGTH_SHORT).show()
-                            model.acknowledgeSaveFailure()
-                        }
-                        else -> Unit
-                    }
-                }
+                model.saveState.collect(::renderSaveState)
             }
         }
     }
 
-    private fun showRequirementDialog(state: SaveState) {
-        val tag = "${ReminderRequirementDialog.TAG}:${state.name}"
-        if (supportFragmentManager.findFragmentByTag(tag) != null) return
+    private fun bindForm() = binding.contentCreateMemo.run {
+        memoOptions.isVisible = true
+        memoTitle.isSaveEnabled = false
+        memoDescription.isSaveEnabled = false
+        memoPriority.isSaveEnabled = false
 
-        val dialog = when (state) {
-            SaveState.FOREGROUND_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state,
+        val draft = model.draft
+        memoTitle.setText(draft.title)
+        memoDescription.setText(draft.description)
+        memoPriority.adapter = ArrayAdapter(
+            this@CreateMemo,
+            android.R.layout.simple_spinner_item,
+            PriorityOption.entries.map { getString(it.label) }
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        val priority = PriorityOption.entries.firstOrNull { it.value == draft.priority } ?: PriorityOption.MEDIUM
+        memoPriority.setSelection(priority.ordinal)
+
+        memoTitle.doAfterTextChanged { updateDraftFromForm() }
+        memoDescription.doAfterTextChanged { updateDraftFromForm() }
+        memoPriority.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateDraftFromForm()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        memoLocation.setOnClickListener {
+            if (model.saveState.value == SaveState.Ready) {
+                selectLocation.launch(MapActivity.createIntent(this@CreateMemo, model.selectedLocation))
+            }
+        }
+        showSelectedLocation()
+    }
+
+    private fun renderSaveState(state: SaveState) {
+        invalidateOptionsMenu()
+        binding.contentCreateMemo.run {
+            val editable = state == SaveState.Ready
+            memoTitle.isEnabled = editable
+            memoDescription.isEnabled = editable
+            memoPriority.isEnabled = editable
+            memoLocation.isEnabled = editable
+        }
+
+        val step = (state as? SaveState.AwaitingReminder)?.step
+        val requirement = (step as? ReminderStep.ShowRationale)?.requirement
+        supportFragmentManager.fragments.filterIsInstance<ReminderRequirementDialog>().forEach { dialog ->
+            if (requirement == null || dialog.requirement != requirement) dialog.dismissNow()
+        }
+
+        when (state) {
+            SaveState.Ready, SaveState.Saving -> Unit
+            is SaveState.AwaitingReminder -> when (val reminderStep = state.step) {
+                is ReminderStep.ShowRationale -> showRequirementDialog(reminderStep.requirement)
+                is ReminderStep.AwaitSystemResult -> launchRequirementStep(reminderStep.action)
+            }
+            is SaveState.Saved -> {
+                val message = when (state.result) {
+                    SaveResult.SAVED -> R.string.memo_saved
+                    SaveResult.WITH_REMINDER -> R.string.memo_saved_with_reminder
+                    SaveResult.WITHOUT_REMINDER -> R.string.memo_saved_without_reminder
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                setResult(RESULT_OK)
+                finish()
+            }
+            SaveState.Failed -> {
+                Toast.makeText(this, R.string.memo_save_error, Toast.LENGTH_SHORT).show()
+                model.acknowledgeSaveFailure()
+            }
+        }
+    }
+
+    private fun showRequirementDialog(requirement: ReminderRequirement) {
+        if (supportFragmentManager.fragments.filterIsInstance<ReminderRequirementDialog>()
+                .any { it.requirement == requirement }
+        ) return
+
+        val dialog = when (requirement) {
+            ReminderRequirement.PRECISE_LOCATION -> ReminderRequirementDialog.newInstance(
+                requirement,
                 R.string.location_permission_settings_title,
                 getString(R.string.reminder_foreground_location_message),
                 R.string.allow_location,
                 showSettingsOption = false
             )
-            SaveState.BACKGROUND_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state, R.string.background_location_settings_title, backgroundGuidance()
+            ReminderRequirement.BACKGROUND_LOCATION -> ReminderRequirementDialog.newInstance(
+                requirement, R.string.background_location_settings_title, backgroundGuidance()
             )
-            SaveState.LOCATION_SERVICES_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state, R.string.location_services_title, getString(R.string.location_services_message)
+            ReminderRequirement.LOCATION_SERVICES -> ReminderRequirementDialog.newInstance(
+                requirement, R.string.location_services_title, getString(R.string.location_services_message)
             )
-            SaveState.NOTIFICATION_PERMISSION_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state,
+            ReminderRequirement.NOTIFICATION_PERMISSION -> ReminderRequirementDialog.newInstance(
+                requirement,
                 R.string.reminder_notifications_title,
                 getString(R.string.reminder_notifications_message),
                 R.string.allow_notifications,
                 showSettingsOption = true
             )
-            SaveState.APP_NOTIFICATIONS_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state, R.string.reminder_notifications_title, getString(R.string.reminder_notifications_message)
+            ReminderRequirement.APP_NOTIFICATIONS -> ReminderRequirementDialog.newInstance(
+                requirement, R.string.reminder_notifications_title, getString(R.string.reminder_notifications_message)
             )
-            SaveState.CHANNEL_NOTIFICATIONS_RATIONALE -> ReminderRequirementDialog.newInstance(
-                state, R.string.reminder_notifications_title, getString(R.string.reminder_notification_channel_message)
+            ReminderRequirement.CHANNEL_NOTIFICATIONS -> ReminderRequirementDialog.newInstance(
+                requirement, R.string.reminder_notifications_title, getString(R.string.reminder_notification_channel_message)
             )
-            else -> error("No dialog for $state")
         }
-        dialog.show(supportFragmentManager, tag)
+        dialog.showNow(supportFragmentManager, ReminderRequirementDialog.TAG)
     }
 
     private fun backgroundGuidance(): String {
@@ -196,39 +230,38 @@ internal class CreateMemo : AppCompatActivity() {
         }
     }
 
-    private fun launchRequirementStep(state: SaveState) {
-        if (!model.claimPermissionLaunch(state)) return
+    private fun launchRequirementStep(action: ReminderSystemAction) {
+        if (!model.claimSystemLaunch(action)) return
         try {
-            when (state) {
-                SaveState.REQUESTING_FOREGROUND -> requestForegroundLocation.launch(Unit)
-                SaveState.REQUESTING_BACKGROUND -> requestBackgroundLocation.launch(Unit)
-                SaveState.OPENING_SETTINGS -> openLocationSettings.launch(
+            when (action) {
+                ReminderSystemAction.REQUEST_FOREGROUND_LOCATION -> requestForegroundLocation.launch(Unit)
+                ReminderSystemAction.REQUEST_BACKGROUND_LOCATION -> requestBackgroundLocation.launch(Unit)
+                ReminderSystemAction.OPEN_LOCATION_SETTINGS -> openLocationSettings.launch(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
                 )
-                SaveState.OPENING_LOCATION_SERVICES -> openLocationServices.launch(
+                ReminderSystemAction.OPEN_LOCATION_SERVICES -> openLocationServices.launch(
                     Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
                 )
-                SaveState.REQUESTING_NOTIFICATIONS -> requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                SaveState.OPENING_APP_NOTIFICATIONS -> openAppNotifications.launch(
+                ReminderSystemAction.REQUEST_NOTIFICATIONS -> requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                ReminderSystemAction.OPEN_APP_NOTIFICATIONS -> openAppNotifications.launch(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                 )
-                SaveState.OPENING_CHANNEL_NOTIFICATIONS -> openChannelNotifications.launch(
+                ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS -> openChannelNotifications.launch(
                     Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                         .putExtra(Settings.EXTRA_CHANNEL_ID, GeofenceNotificationManager.CHANNEL_ID)
                 )
-                else -> error("No permission launcher for $state")
             }
         } catch (_: ActivityNotFoundException) {
-            onRequirementLaunchFailed(state)
+            onRequirementLaunchFailed(action)
         } catch (_: SecurityException) {
-            onRequirementLaunchFailed(state)
+            onRequirementLaunchFailed(action)
         }
     }
 
-    private fun onRequirementLaunchFailed(state: SaveState) {
+    private fun onRequirementLaunchFailed(action: ReminderSystemAction) {
         Toast.makeText(this, R.string.reminder_requirement_screen_error, Toast.LENGTH_SHORT).show()
-        model.onPermissionResult(state, reminderReadiness())
+        model.onSystemResult(action, reminderReadiness())
     }
 
     private fun reminderReadiness() = ReminderReadiness(
@@ -253,7 +286,7 @@ internal class CreateMemo : AppCompatActivity() {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        menu.findItem(R.id.action_save).isEnabled = model.saveState.value == SaveState.READY
+        menu.findItem(R.id.action_save).isEnabled = model.saveState.value == SaveState.Ready
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -275,32 +308,24 @@ internal class CreateMemo : AppCompatActivity() {
      * Saves the memo if the input is valid; otherwise shows the corresponding error messages.
      */
     private fun saveMemo() {
-        if (model.saveState.value != SaveState.READY) return
+        if (model.saveState.value != SaveState.Ready) return
+        updateDraftFromForm()
+        val draft = model.draft
+        val titleMissing = draft.title.isBlank()
+        val descriptionMissing = draft.description.isBlank()
         binding.contentCreateMemo.run {
-            val priority = PriorityOption.entries[memoPriority.selectedItemPosition]
-            model.updateMemo(memoTitle.text.toString(), memoDescription.text.toString(), priority.value)
-            if (model.isMemoValid()) {
-                model.saveMemo(reminderReadiness())
-            } else {
-                memoTitleContainer.error = getErrorMessage(model.hasTitleError(), R.string.memo_title_empty_error)
-                memoDescription.error = getErrorMessage(model.hasTextError(), R.string.memo_text_empty_error)
-            }
+            memoTitleContainer.error = getString(R.string.memo_title_empty_error).takeIf { titleMissing }
+            memoDescription.error = getString(R.string.memo_text_empty_error).takeIf { descriptionMissing }
+        }
+        if (!titleMissing && !descriptionMissing) {
+            model.saveMemo(reminderReadiness())
         }
     }
 
-    /**
-     * Returns the error message if there is an error, or an empty string otherwise.
-     *
-     * @param hasError          - whether there is an error.
-     * @param errorMessageResId - the resource id of the error message to show.
-     * @return the error message if there is an error, or an empty string otherwise.
-     */
-    private fun getErrorMessage(hasError: Boolean, @StringRes errorMessageResId: Int): String {
-        return if (hasError) {
-            getString(errorMessageResId)
-        } else {
-            String.empty()
-        }
+    private fun updateDraftFromForm() = binding.contentCreateMemo.run {
+        val priority = PriorityOption.entries.getOrNull(memoPriority.selectedItemPosition)?.value
+            ?: model.draft.priority
+        model.updateDraft(memoTitle.text.toString(), memoDescription.text.toString(), priority)
     }
 
     private enum class PriorityOption(val value: Int, @field:StringRes val label: Int) {

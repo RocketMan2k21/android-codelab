@@ -4,9 +4,7 @@ import com.sap.codelab.data.location.GeofenceManager
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.repository.IMemoRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 internal class CreateMemoUseCase(
     private val repository: IMemoRepository,
@@ -23,7 +21,7 @@ internal class CreateMemoUseCase(
 
     /** Saves the memo before handling any location reminder. */
     suspend operator fun invoke(memo: Memo, reminder: ReminderRequest): Outcome = memoGeofenceChanges.withLock {
-        val memoId = withContext(Dispatchers.IO) { repository.saveMemo(memo) }
+        val memoId = repository.saveMemo(memo)
         when (reminder) {
             ReminderRequest.NONE -> Outcome.Saved
             ReminderRequest.SKIP -> Outcome.MonitoringSkipped
@@ -35,9 +33,7 @@ internal class CreateMemoUseCase(
         return try {
             geofenceManager.register(memo)
 
-            withContext(Dispatchers.IO) {
-                repository.setRegistered(memo.id, true)
-            }
+            repository.setRegistered(memo.id, true)
             Outcome.MonitoringActive
         } catch (error: CancellationException) {
             throw error

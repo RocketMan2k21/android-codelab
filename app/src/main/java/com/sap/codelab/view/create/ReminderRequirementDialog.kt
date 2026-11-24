@@ -8,10 +8,11 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.os.bundleOf
 import androidx.fragment.app.DialogFragment
 import com.sap.codelab.R
-import com.sap.codelab.view.create.CreateMemoViewModel.RationaleAction
-import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 
 internal class ReminderRequirementDialog : DialogFragment() {
+    val requirement: ReminderRequirement?
+        get() = readRequirement(requireArguments())
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val args = requireArguments()
         val builder = AlertDialog.Builder(requireContext())
@@ -42,29 +43,34 @@ internal class ReminderRequirementDialog : DialogFragment() {
     }
 
     private fun resultFor(action: RationaleAction) = bundleOf(
-        STATE_KEY to requireArguments().getString(STATE_KEY),
+        REQUIREMENT_KEY to requirement?.name,
         ACTION_KEY to action.name
     )
 
     companion object {
         const val TAG = "reminderRequirementDialog"
         const val RESULT_KEY = "reminderRequirementDialogResult"
-        const val STATE_KEY = "state"
         const val ACTION_KEY = "action"
+        private const val REQUIREMENT_KEY = "requirement"
         private const val TITLE_KEY = "title"
         private const val MESSAGE_KEY = "message"
         private const val POSITIVE_LABEL_KEY = "positiveLabel"
         private const val SETTINGS_OPTION_KEY = "settingsOption"
 
+        fun readRequirement(data: Bundle): ReminderRequirement? {
+            val name = data.getString(REQUIREMENT_KEY)
+            return ReminderRequirement.entries.firstOrNull { it.name == name }
+        }
+
         fun newInstance(
-            state: SaveState,
+            requirement: ReminderRequirement,
             @StringRes title: Int,
             message: String,
             @StringRes positiveLabel: Int = R.string.open_app_settings,
             showSettingsOption: Boolean = false
         ) = ReminderRequirementDialog().apply {
             arguments = bundleOf(
-                STATE_KEY to state.name,
+                REQUIREMENT_KEY to requirement.name,
                 TITLE_KEY to title,
                 MESSAGE_KEY to message,
                 POSITIVE_LABEL_KEY to positiveLabel,
