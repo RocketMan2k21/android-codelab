@@ -6,6 +6,13 @@
     <string name="new_memo">New Memo</string>
     <string name="memo_text">Text</string>
     <string name="action_save">Save</string>
+    <string name="action_back">Back</string>
+    <string name="action_mark_done">Mark done</string>
+    <string name="memo_done">Done</string>
+    <string name="memo_coordinates">Coordinates</string>
+    <string name="memo_no_location">No location set</string>
+    <string name="memo_load_error">Couldn’t load the memo.</string>
+    <string name="memo_completion_error">Couldn’t update the memo or its location reminder.</string>
     <string name="memo_title_empty_error">Please provide a title for this memo</string>
     <string name="memo_text_empty_error">Please provide a memo description</string>
     <string name="memo_save_error">Couldn’t save the memo. Try again.</string>

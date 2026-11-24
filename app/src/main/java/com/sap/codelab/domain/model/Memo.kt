@@ -29,3 +29,6 @@ internal data class Memo(
         @ColumnInfo(defaultValue = "0")
         val isRegistered: Boolean = false
 )
+
+internal val Memo.hasLocation: Boolean
+    get() = reminderLatitude != 0.0 || reminderLongitude != 0.0

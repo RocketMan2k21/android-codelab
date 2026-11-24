@@ -1,11 +1,22 @@
 package com.sap.codelab.view.detail
 
 import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.sap.codelab.R
 import com.sap.codelab.databinding.ActivityViewMemoBinding
-import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.domain.model.hasLocation
+import com.sap.codelab.repository.App
+import com.sap.codelab.repository.RoomMemoRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 internal const val BUNDLE_MEMO_ID: String = "memoId"
@@ -20,36 +31,75 @@ internal class ViewMemo : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityViewMemoBinding.inflate(layoutInflater)
+        binding.contentCreateMemo.run {
+            root.isVisible = false
+            memoTitle.isEnabled = false
+            memoDescription.isEnabled = false
+        }
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-        // Initialize views with the passed memo id
-        val model = ViewModelProvider(this)[ViewMemoViewModel::class.java]
-        if (savedInstanceState == null) {
-            // Observe the memo state flow for changes
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeActionContentDescription(R.string.action_back)
+
+        val memoId = intent.getLongExtra(BUNDLE_MEMO_ID, -1)
+        val factory = viewModelFactory {
+            initializer {
+                ViewMemoViewModel(memoId, RoomMemoRepository, (application as App).monitoringUseCase)
+            }
+        }
+        val model = ViewModelProvider(this, factory)[ViewMemoViewModel::class.java]
+        binding.markMemoDone.setOnClickListener { model.markDone() }
+
+        onBackPressedDispatcher.addCallback(this) {
+            // Let the save finish before Home reloads its list.
             lifecycleScope.launch {
-                model.memo.collect { value ->
-                    value?.let { memo ->
-                        // Update the UI whenever the memo changes
-                        updateUI(memo)
+                model.state.first { !it.isCompleting }
+                if (isFinishing) return@launch
+                if (isTaskRoot) {
+                    supportParentActivityIntent?.let { startActivity(it) }
+                }
+                finish()
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { model.state.collect(::render) }
+                launch {
+                    model.errorMessages.collect { message ->
+                        Toast.makeText(this@ViewMemo, message, Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-            val id = intent.getLongExtra(BUNDLE_MEMO_ID, -1)
-            model.loadMemo(id)
         }
     }
 
-    /**
-     * Updates the UI with the given memo details.
-     *
-     * @param memo - the memo whose details are to be displayed.
-     */
-    private fun updateUI(memo: Memo) {
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
+    }
+
+    private fun render(state: ViewMemoViewModel.State) {
+        val memo = state.memo
+        val isDone = memo?.isDone == true
+        binding.markMemoDone.apply {
+            isVisible = memo != null
+            isChecked = isDone || state.isCompleting
+            isEnabled = memo != null && !isDone && !state.isCompleting
+            setText(if (isDone) R.string.memo_done else R.string.action_mark_done)
+        }
         binding.contentCreateMemo.run {
+            root.isVisible = memo != null
+            if (memo == null) return
+
             memoTitle.setText(memo.title)
             memoDescription.setText(memo.description)
-            memoTitle.isEnabled = false
-            memoDescription.isEnabled = false
+            memoDetailsLocation.isVisible = true
+            memoCoordinates.text = if (memo.hasLocation) {
+                getString(R.string.selected_memo_location, memo.reminderLatitude, memo.reminderLongitude)
+            } else {
+                getString(R.string.memo_no_location)
+            }
         }
     }
 }

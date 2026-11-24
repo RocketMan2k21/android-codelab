@@ -4,12 +4,14 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.icu.text.BreakIterator
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -17,6 +19,7 @@ import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.view.detail.BUNDLE_MEMO_ID
 import com.sap.codelab.view.detail.ViewMemo
+import com.sap.codelab.view.home.Home
 
 internal class GeofenceNotificationManager(context: Context) {
     private val applicationContext = context.applicationContext
@@ -55,7 +58,15 @@ internal class GeofenceNotificationManager(context: Context) {
         val details = Intent(applicationContext, ViewMemo::class.java)
             .setData(Uri.fromParts("memo", memo.id.toString(), null))
             .putExtra(BUNDLE_MEMO_ID, memo.id)
-        val openMemo = PendingIntent.getActivity(applicationContext, 0, details, PendingIntent.FLAG_IMMUTABLE)
+        // Start or bring forward the app task before adding the memo screen.
+        val home = Intent.makeMainActivity(ComponentName(applicationContext, Home::class.java))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val openMemo = PendingIntent.getActivities(
+            applicationContext,
+            memo.id.toInt(),
+            arrayOf(home, details),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
@@ -67,6 +78,7 @@ internal class GeofenceNotificationManager(context: Context) {
             .setAutoCancel(true)
             .build()
 
+        Log.d("Geofence", "Showing notification for memo=${memo.id}")
         notifications.notify("geofence:${memo.id}", 0, notification)
     }
 

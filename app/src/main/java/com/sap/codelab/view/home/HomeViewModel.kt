@@ -1,14 +1,9 @@
 package com.sap.codelab.view.home
 
-import android.location.LocationManager
 import android.util.Log
-import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sap.codelab.data.location.LocationPermissionSource
-import com.sap.codelab.data.location.PlayServicesGeofenceManager
 import com.sap.codelab.domain.model.Memo
-import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 import com.sap.codelab.repository.App
 import com.sap.codelab.repository.IMemoRepository
@@ -110,22 +105,6 @@ internal class HomeViewModel(
     }
 
     companion object {
-        private var sharedMonitoring: MonitoringUseCase? = null
-
-        @Synchronized
-        fun create(app: App): HomeViewModel {
-            val monitoring = sharedMonitoring ?: run {
-                val permissions = LocationPermissionSource(app)
-                MonitoringUseCase(RoomMemoRepository, PlayServicesGeofenceManager(app)) {
-                    ReminderReadiness(
-                        location = permissions.getPermissionStatus(),
-                        locationServicesEnabled = app.getSystemService(LocationManager::class.java)
-                            ?.let(LocationManagerCompat::isLocationEnabled) == true,
-                        notificationAccess = app.geofenceNotificationManager.getAccess()
-                    )
-                }.also { sharedMonitoring = it }
-            }
-            return HomeViewModel(RoomMemoRepository, monitoring)
-        }
+        fun create(app: App): HomeViewModel = HomeViewModel(RoomMemoRepository, app.monitoringUseCase)
     }
 }

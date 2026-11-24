@@ -16,7 +16,22 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:popupTheme="@style/AppTheme.PopupOverlay" />
+            app:popupTheme="@style/AppTheme.PopupOverlay">
+
+            <androidx.appcompat.widget.AppCompatCheckBox
+                android:id="@+id/mark_memo_done"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="8dp"
+                android:minHeight="48dp"
+                android:saveEnabled="false"
+                android:text="@string/action_mark_done"
+                android:textColor="?android:attr/textColorPrimary"
+                android:visibility="gone"
+                app:buttonTint="?android:attr/textColorPrimary"
+                tools:visibility="visible" />
+        </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
 

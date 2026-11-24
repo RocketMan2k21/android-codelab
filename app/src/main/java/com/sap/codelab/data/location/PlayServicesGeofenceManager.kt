@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.nfc.Tag
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -70,5 +71,6 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
 
     override suspend fun remove(reminderId: String) {
         client.removeGeofences(listOf(reminderId)).await()
+        Log.d(TAG, "Removed Geofence with id $reminderId")
     }
 }

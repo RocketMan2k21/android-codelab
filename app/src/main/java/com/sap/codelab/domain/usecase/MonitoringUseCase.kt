@@ -5,15 +5,13 @@ import com.sap.codelab.data.location.GeofenceManager
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.domain.model.ReminderReadiness
+import com.sap.codelab.domain.model.hasLocation
 import com.sap.codelab.repository.IMemoRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-
-private val Memo.hasLocation: Boolean
-    get() = reminderLatitude != 0.0 || reminderLongitude != 0.0
 
 internal val memoGeofenceChanges = Mutex()
 

@@ -20,6 +20,8 @@ private const val TAG = "GeofenceReceiver"
 internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val event = GeofencingEvent.fromIntent(intent) ?: return
+        Log.d("Geofence", "Received IDs: ${event.triggeringGeofences?.map { it.requestId }}")
+
         if (event.hasError()) {
             Log.w(TAG, GeofenceStatusCodes.getStatusCodeString(event.errorCode))
             return

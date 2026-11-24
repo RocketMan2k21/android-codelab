@@ -43,6 +43,7 @@
         <activity
             android:name="com.sap.codelab.view.detail.ViewMemo"
             android:exported="false"
+            android:parentActivityName=".view.home.Home"
             android:theme="@style/AppTheme.NoActionBar" />
         <receiver
             android:name=".data.location.GeofenceBroadcastReceiver"
