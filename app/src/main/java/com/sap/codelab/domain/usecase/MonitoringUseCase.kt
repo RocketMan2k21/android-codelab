@@ -2,6 +2,8 @@ package com.sap.codelab.domain.usecase
 
 import android.util.Log
 import com.sap.codelab.data.location.GeofenceManager
+import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.domain.model.ReminderReadiness
@@ -18,7 +20,8 @@ internal val memoGeofenceChanges = Mutex()
 internal class MonitoringUseCase(
     private val repository: IMemoRepository,
     private val geofenceManager: GeofenceManager,
-    val readRequirements: () -> ReminderReadiness
+    private val locationPermissions: LocationPermissionSource,
+    private val notifications: GeofenceNotificationManager
 ) {
     data class Status(val isVisible: Boolean, val requirements: ReminderReadiness, val pendingIds: Set<Long>) {
         val canActivate: Boolean
@@ -27,6 +30,12 @@ internal class MonitoringUseCase(
         val isActive: Boolean
             get() = isVisible && canActivate && pendingIds.isEmpty()
     }
+
+    fun readRequirements(): ReminderReadiness = ReminderReadiness(
+        location = locationPermissions.getPermissionStatus(),
+        locationServicesEnabled = locationPermissions.isLocationEnabled(),
+        notificationAccess = notifications.getAccess()
+    )
 
     fun status(openMemos: List<Memo>): Status {
         val locationMemos = openMemos.filter { it.hasLocation }
