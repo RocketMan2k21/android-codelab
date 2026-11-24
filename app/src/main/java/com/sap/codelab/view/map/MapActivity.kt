@@ -40,11 +40,17 @@ internal class MapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMapBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeActionContentDescription(R.string.action_back)
 
         val initialLocation = readLocation(intent)
         shouldCenterOnDevice = savedInstanceState?.getBoolean(KEY_CENTER_ON_DEVICE) ?: (initialLocation == null)
         binding.locationStatus.isVisible = savedInstanceState?.getBoolean(KEY_PERMISSION_DENIED) == true
-        binding.cancelLocation.setOnClickListener { finish() }
+        binding.centerCurrentLocation.setOnClickListener {
+            shouldCenterOnDevice = true
+            checkLocationPermission()
+        }
         binding.confirmLocation.setOnClickListener {
             val center = map?.cameraPosition?.target ?: return@setOnClickListener
             setResult(RESULT_OK, Intent().putLocation(Location(center.latitude, center.longitude)))
@@ -66,13 +72,19 @@ internal class MapActivity : AppCompatActivity() {
                 }
             }
             binding.mapMarker.isVisible = true
+            binding.centerCurrentLocation.isVisible = true
             binding.confirmLocation.isEnabled = true
             centerMapOnDevice()
         }
 
         if (savedInstanceState == null) {
-            lifecycleScope.launch { lifecycle.withStarted { checkPermissionOnOpen() } }
+            lifecycleScope.launch { lifecycle.withStarted { checkLocationPermission() } }
         }
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
     }
 
     override fun onResume() {
@@ -89,7 +101,7 @@ internal class MapActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    private fun checkPermissionOnOpen() {
+    private fun checkLocationPermission() {
         val status = permissionSource.getPermissionStatus()
         when {
             status.isLocationPermissionEnabled -> centerMapOnDevice()

@@ -59,6 +59,7 @@
     <string name="select_memo_location">Select location</string>
     <string name="move_map_to_select_location">Drag the map to place the marker.</string>
     <string name="confirm_memo_location">Use this location</string>
+    <string name="center_on_current_location">Center on current location</string>
     <string name="location_permission_denied">Location access is off. You can still choose a point on the map.</string>
     <string name="location_permission_settings_title">Location permission required</string>
     <string name="location_permission_settings_message">Allow location access in Settings to center the map on your current location.</string>
