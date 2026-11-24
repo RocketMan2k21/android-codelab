@@ -18,7 +18,7 @@ import com.sap.codelab.R
 import com.sap.codelab.data.location.FusedLocationDataSource
 import com.sap.codelab.databinding.ActivityMapBinding
 import com.sap.codelab.domain.model.Location
-import com.sap.codelab.repository.App
+import com.sap.codelab.App
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch

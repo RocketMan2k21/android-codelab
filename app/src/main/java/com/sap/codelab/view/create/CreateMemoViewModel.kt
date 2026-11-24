@@ -11,6 +11,7 @@ import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.domain.usecase.CreateMemoUseCase.Outcome
 import com.sap.codelab.domain.usecase.CreateMemoUseCase.ReminderRequest
+import com.sap.codelab.domain.usecase.MonitoringUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 internal class CreateMemoViewModel(
     private val savedState: SavedStateHandle,
     private val createMemo: CreateMemoUseCase,
+    private val monitoring: MonitoringUseCase,
     sdkInt: Int = Build.VERSION.SDK_INT,
 ) : ViewModel() {
 
@@ -43,6 +45,8 @@ internal class CreateMemoViewModel(
     val selectedLocation: Location?
         get() = draft.location
 
+    fun hasPreciseLocationPermission(): Boolean = monitoring.readRequirements().location.isPreciseLocationEnabled
+
     /** Updates the form fields while the draft is editable. */
     fun updateDraft(title: String, description: String, priority: Int) {
         if (_saveState.value != SaveState.Ready) return
@@ -56,13 +60,13 @@ internal class CreateMemoViewModel(
     }
 
     /** Starts saving a valid draft and checks reminder requirements when it has a location. */
-    fun saveMemo(readiness: ReminderReadiness) {
+    fun saveMemo(readiness: ReminderReadiness? = null) {
         if (_saveState.value != SaveState.Ready || draft.title.isBlank() || draft.description.isBlank()) return
 
         if (draft.location == null) {
             persist(ReminderRequest.NONE)
         } else {
-            applyDecision(reminderFlow.start(readiness))
+            applyDecision(reminderFlow.start(readiness ?: monitoring.readRequirements()))
         }
     }
 
@@ -83,10 +87,10 @@ internal class CreateMemoViewModel(
     }
 
     /** Uses fresh readiness after the matching system action returns. */
-    fun onSystemResult(action: ReminderSystemAction, readiness: ReminderReadiness) {
+    fun onSystemResult(action: ReminderSystemAction, readiness: ReminderReadiness? = null) {
         val step = currentStep() as? ReminderStep.AwaitSystemResult ?: return
         if (step.action != action || !step.launched) return
-        applyDecision(reminderFlow.onSystemResult(action, readiness))
+        applyDecision(reminderFlow.onSystemResult(action, readiness ?: monitoring.readRequirements()))
     }
 
     /** Reenables editing after the Activity reports a write failure. */

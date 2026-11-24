@@ -1,4 +1,4 @@
-package com.sap.codelab.data.location
+package com.sap.codelab.data.geofence
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -7,13 +7,13 @@ import android.util.Log
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofenceStatusCodes
-import com.sap.codelab.repository.App
+import com.sap.codelab.App
 import com.sap.codelab.utils.coroutines.ScopeProvider
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val TAG = "GeofenceReceiver"
 
+/** Handles dwell events and shows reminders for memos that are still open. */
 internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val event = GeofencingEvent.fromIntent(intent) ?: return

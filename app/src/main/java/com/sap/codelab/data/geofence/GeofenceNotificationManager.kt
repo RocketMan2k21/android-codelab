@@ -1,6 +1,8 @@
-package com.sap.codelab.data.location
+package com.sap.codelab.data.geofence
 
 import android.Manifest
+import android.R
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -21,6 +23,7 @@ import com.sap.codelab.view.detail.BUNDLE_MEMO_ID
 import com.sap.codelab.view.detail.ViewMemo
 import com.sap.codelab.view.home.Home
 
+/** Manages the location reminder channel and posts notifications that open the matching memo. */
 internal class GeofenceNotificationManager(context: Context) {
     private val applicationContext = context.applicationContext
     private val notifications = NotificationManagerCompat.from(applicationContext)
@@ -31,6 +34,7 @@ internal class GeofenceNotificationManager(context: Context) {
         )
     }
 
+    /** Reports whether the runtime permission, app settings, or channel settings block reminders. */
     fun getAccess(): NotificationAccess {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -47,7 +51,8 @@ internal class GeofenceNotificationManager(context: Context) {
         }
     }
 
-    /** Shows the reminder for a memo whose geofence has triggered. */
+    /** Posts or replaces the reminder for this memo when notifications are enabled. */
+    @SuppressLint("MissingPermission")
     fun show(memo: Memo) {
         if (getAccess() != NotificationAccess.ENABLED) return
 
@@ -63,13 +68,13 @@ internal class GeofenceNotificationManager(context: Context) {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val openMemo = PendingIntent.getActivities(
             applicationContext,
-            memo.id.toInt(),
+            0,
             arrayOf(home, details),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_menu_mylocation)
             .setContentTitle("You’ve arrived • ${memo.title}")
             .setContentText(preview)
             .setStyle(NotificationCompat.BigTextStyle().bigText(preview))

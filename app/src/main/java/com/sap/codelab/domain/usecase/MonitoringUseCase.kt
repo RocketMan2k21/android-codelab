@@ -1,14 +1,14 @@
 package com.sap.codelab.domain.usecase
 
 import android.util.Log
-import com.sap.codelab.data.location.GeofenceManager
-import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.domain.GeofenceManager
+import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.model.hasLocation
-import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.domain.MemoRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,7 +16,7 @@ import kotlinx.coroutines.sync.withLock
 internal val memoGeofenceChanges = Mutex()
 
 internal class MonitoringUseCase(
-    private val repository: IMemoRepository,
+    private val repository: MemoRepository,
     private val geofenceManager: GeofenceManager,
     private val locationPermissions: LocationPermissionSource,
     private val notifications: GeofenceNotificationManager

@@ -1,4 +1,4 @@
-package com.sap.codelab.repository
+package com.sap.codelab.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -6,9 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.sap.codelab.domain.model.Memo
 
-/**
- * The Dao representation of a Memo.
- */
+/** Room queries for memo records and their reminder registration flags. */
 @Dao
 internal interface MemoDao {
 
@@ -24,15 +22,15 @@ internal interface MemoDao {
     @Query("SELECT * FROM memo WHERE isDone = 0")
     suspend fun getOpen(): List<Memo>
 
+    /** Filters out completed memos when resolving IDs from a geofence event. */
     @Query("SELECT * FROM memo WHERE isDone = 0 AND id IN (:memoIds)")
     suspend fun getOpenByIds(memoIds: List<Long>): List<Memo>
 
-    /**
-     * Inserts the given Memo into the database. We currently do not support updating of memos.
-     */
+    /** Inserts the memo or replaces the record with the same ID. Returns the row ID. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(memo: Memo): Long
 
+    /** Updates the stored geofence registration flag for one memo. */
     @Query("UPDATE memo SET isRegistered = :isRegistered WHERE id = :memoId")
     suspend fun setRegistered(memoId: Long, isRegistered: Boolean)
 

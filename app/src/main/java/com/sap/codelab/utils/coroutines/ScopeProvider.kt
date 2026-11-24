@@ -9,12 +9,6 @@ import kotlin.coroutines.EmptyCoroutineContext
 internal object ScopeProvider {
 
     /**
-     * Creates an application scope as an alternative for [GlobalScope] which can be used by other libraries.
-     * This scope should be used for top-level coroutines which are operating on the whole application lifetime and are not cancelled prematurely.
-     */
-    val application by lazy { CoroutineScope(EmptyCoroutineContext) }
-
-    /**
      * Creates a new coroutine scope for any local context such as: activities, fragments, views, components etc.
      * Make sure you handle cancellation properly!
      *
@@ -22,16 +16,5 @@ internal object ScopeProvider {
      */
     fun newScope(dispatcher: CoroutineDispatcher = Dispatchers.Main): CoroutineScope {
         return CoroutineScope(dispatcher)
-    }
-
-    /**
-     * Cancel a coroutine scope => Cancel all running jobs created from the given scope.
-     * Call cancel whenever the jobs don't have to run anymore, e.g: when the activity gets destroyed, when a fragment is detached, when a component stops
-     * running etc.
-     *
-     * @param scope - the scope to cancel.
-     */
-    fun cancel(scope: CoroutineScope?) {
-        scope?.cancel()
     }
 }

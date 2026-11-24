@@ -1,17 +1,17 @@
-package com.sap.codelab.data.location
+package com.sap.codelab.data.geofence
 
 import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.nfc.Tag
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
+import com.sap.codelab.domain.GeofenceManager
 import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.tasks.await
 
@@ -20,12 +20,13 @@ private const val DWELL_DELAY_MILLIS = 30_000
 
 private const val TAG = "PlayServicesGeofenceManager"
 
+/** Registers dwell geofences with Google Play services using memo IDs as request IDs. */
 internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
     private val applicationContext = context.applicationContext
     private val client = LocationServices.getGeofencingClient(applicationContext)
 
+    /** Shared by all geofences so Play services can deliver transition data to the receiver. */
     private val transitionIntent: PendingIntent by lazy {
-        // Play services adds the transition data to this explicit broadcast.
         val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             PendingIntent.FLAG_MUTABLE
         } else {
@@ -69,6 +70,7 @@ internal class PlayServicesGeofenceManager(context: Context) : GeofenceManager {
         Log.d(TAG, "Added request ${geofence.requestId} to geofence request")
     }
 
+    /** Removes the geofence whose request ID matches [reminderId]. */
     override suspend fun remove(reminderId: String) {
         client.removeGeofences(listOf(reminderId)).await()
         Log.d(TAG, "Removed Geofence with id $reminderId")

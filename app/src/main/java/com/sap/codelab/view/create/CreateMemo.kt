@@ -26,10 +26,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sap.codelab.R
-import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityCreateMemoBinding
-import com.sap.codelab.domain.model.ReminderReadiness
-import com.sap.codelab.repository.App
+import com.sap.codelab.App
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveResult
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import com.sap.codelab.view.map.LocationPermissionLauncher
@@ -44,7 +43,6 @@ internal class CreateMemo : AppCompatActivity() {
     private lateinit var binding: ActivityCreateMemoBinding
     private lateinit var model: CreateMemoViewModel
     private val app get() = application as App
-    private val permissionSource get() = app.locationPermissionSource
 
     private val selectLocation = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -54,13 +52,13 @@ internal class CreateMemo : AppCompatActivity() {
     }
 
     private val requestForegroundLocation = registerForActivityResult(LocationPermissionLauncher()) {
-        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_FOREGROUND_LOCATION)
     }
 
     private val requestBackgroundLocation = registerForActivityResult(
         LocationPermissionLauncher(LocationPermissionLauncher.Mode.BACKGROUND)
     ) {
-        model.onSystemResult(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_BACKGROUND_LOCATION)
     }
 
     private val openLocationSettings = settingsLauncher(ReminderSystemAction.OPEN_LOCATION_SETTINGS)
@@ -68,12 +66,12 @@ internal class CreateMemo : AppCompatActivity() {
     private val openAppNotifications = settingsLauncher(ReminderSystemAction.OPEN_APP_NOTIFICATIONS)
     private val openChannelNotifications = settingsLauncher(ReminderSystemAction.OPEN_CHANNEL_NOTIFICATIONS)
     private val requestNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        model.onSystemResult(ReminderSystemAction.REQUEST_NOTIFICATIONS, reminderReadiness())
+        model.onSystemResult(ReminderSystemAction.REQUEST_NOTIFICATIONS)
     }
 
     private fun settingsLauncher(action: ReminderSystemAction) =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            model.onSystemResult(action, reminderReadiness())
+            model.onSystemResult(action)
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,7 +81,11 @@ internal class CreateMemo : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         val factory = viewModelFactory {
             initializer {
-                CreateMemoViewModel(createSavedStateHandle(), app.createMemoUseCase)
+                CreateMemoViewModel(
+                    savedState = createSavedStateHandle(),
+                    createMemo = app.createMemoUseCase,
+                    monitoring = app.monitoringUseCase,
+                )
             }
         }
         model = ViewModelProvider(this, factory)[CreateMemoViewModel::class.java]
@@ -221,7 +223,7 @@ internal class CreateMemo : AppCompatActivity() {
             R.string.background_location_settings_message,
             optionLabel
         )
-        return if (permissionSource.getPermissionStatus().isPreciseLocationEnabled) {
+        return if (model.hasPreciseLocationPermission()) {
             message
         } else {
             getString(R.string.background_location_precise_guidance, message)
@@ -259,14 +261,8 @@ internal class CreateMemo : AppCompatActivity() {
 
     private fun onRequirementLaunchFailed(action: ReminderSystemAction) {
         Toast.makeText(this, R.string.reminder_requirement_screen_error, Toast.LENGTH_SHORT).show()
-        model.onSystemResult(action, reminderReadiness())
+        model.onSystemResult(action)
     }
-
-    private fun reminderReadiness() = ReminderReadiness(
-        location = permissionSource.getPermissionStatus(),
-        locationServicesEnabled = permissionSource.isLocationEnabled(),
-        notificationAccess = app.geofenceNotificationManager.getAccess()
-    )
 
     private fun showSelectedLocation() {
         val location = model.selectedLocation
@@ -315,7 +311,7 @@ internal class CreateMemo : AppCompatActivity() {
             memoDescription.error = getString(R.string.memo_text_empty_error).takeIf { descriptionMissing }
         }
         if (!titleMissing && !descriptionMissing) {
-            model.saveMemo(reminderReadiness())
+            model.saveMemo()
         }
     }
 

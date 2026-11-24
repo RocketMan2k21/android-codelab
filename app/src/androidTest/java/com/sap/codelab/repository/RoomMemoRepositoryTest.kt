@@ -3,6 +3,8 @@ package com.sap.codelab.repository
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.sap.codelab.utils.Database
+import com.sap.codelab.data.local.repository.RoomMemoRepository
 import com.sap.codelab.domain.model.Memo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking

@@ -1,10 +1,12 @@
-package com.sap.codelab.repository
+package com.sap.codelab
 
 import android.app.Application
 import androidx.room.Room
-import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.data.location.LocationPermissionSource
-import com.sap.codelab.data.location.PlayServicesGeofenceManager
+import com.sap.codelab.data.geofence.PlayServicesGeofenceManager
+import com.sap.codelab.utils.Database
+import com.sap.codelab.data.local.repository.RoomMemoRepository
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 

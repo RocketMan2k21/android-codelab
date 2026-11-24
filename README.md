@@ -43,7 +43,7 @@ The app uses manual constructor injection. Android creates `App` from the manife
 
 | Consumer | Dependencies and ownership |
 | --- | --- |
-| `CreateMemoUseCase` | `App` passes `RoomMemoRepository` as `IMemoRepository` and a `PlayServicesGeofenceManager` as `GeofenceManager`. |
+| `CreateMemoUseCase` | `App` passes `RoomMemoRepository` as `MemoRepository` and a `PlayServicesGeofenceManager` as `GeofenceManager`. |
 | `MonitoringUseCase` | `App` passes the same repository, a separate `PlayServicesGeofenceManager`, a `LocationPermissionSource`, and the shared `GeofenceNotificationManager`. The use case reads the current location permissions, device location setting, and notification access from those sources when it builds `ReminderReadiness`. |
 | `RoomMemoRepository` | The repository builds the Room `Database` from the application context and delegates memo queries and writes to Room's generated `MemoDao`. |
 | `PlayServicesGeofenceManager` | Each instance obtains a Play Services geofencing client from the application context. It registers and removes geofences by memo ID and directs transition broadcasts to `GeofenceBroadcastReceiver`. |

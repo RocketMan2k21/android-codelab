@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.sap.codelab.R
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.usecase.MonitoringUseCase
-import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.domain.MemoRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 
 internal class ViewMemoViewModel(
     private val memoId: Long,
-    private val repository: IMemoRepository,
+    private val repository: MemoRepository,
     private val monitoring: MonitoringUseCase
 ) : ViewModel() {
 

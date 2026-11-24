@@ -13,6 +13,7 @@ import com.sap.codelab.domain.model.LocationPermission
 private const val PREFERENCES_NAME = "location_permissions"
 private const val FOREGROUND_PERMISSION_REQUESTED = "foreground_permission_requested"
 
+/** Reads Android location grants and remembers whether foreground permission was requested. */
 internal class LocationPermissionSource(context: Context) {
     private val applicationContext = context.applicationContext
     private val preferences = applicationContext.getSharedPreferences(
@@ -20,6 +21,7 @@ internal class LocationPermissionSource(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    /** Combines current grants with the saved request history and Android version rules. */
     fun getPermissionStatus(): LocationPermission {
         val fineGranted = ContextCompat.checkSelfPermission(
             applicationContext,
@@ -48,6 +50,7 @@ internal class LocationPermissionSource(context: Context) {
         )
     }
 
+    /** Reads the device-wide Location switch. */
     fun isLocationEnabled(): Boolean {
         val manager = applicationContext.getSystemService(LocationManager::class.java) ?: return false
         return LocationManagerCompat.isLocationEnabled(manager)

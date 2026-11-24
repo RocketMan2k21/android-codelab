@@ -1,10 +1,10 @@
 package com.sap.codelab.domain.usecase
 
-import com.sap.codelab.data.location.GeofenceManager
+import com.sap.codelab.domain.GeofenceManager
 import com.sap.codelab.domain.model.Memo
-import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.domain.MemoRepository
 
-internal class InMemoryMemoRepository : IMemoRepository {
+internal class InMemoryMemoRepository : MemoRepository {
     private val memos = linkedMapOf<Long, Memo>()
     private var nextId = 1L
     var saveFailure: Exception? = null

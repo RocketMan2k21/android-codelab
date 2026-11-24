@@ -2,10 +2,11 @@ package com.sap.codelab.view.create
 
 import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.utils.extensions.empty
 
 internal data class MemoDraft(
-    val title: String = "",
-    val description: String = "",
+    val title: String = String.empty(),
+    val description: String = String.empty(),
     val priority: Int = DEFAULT_PRIORITY,
     val location: Location? = null,
 ) {

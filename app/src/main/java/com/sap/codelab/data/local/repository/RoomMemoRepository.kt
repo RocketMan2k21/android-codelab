@@ -1,9 +1,11 @@
-package com.sap.codelab.repository
+package com.sap.codelab.data.local.repository
 
+import com.sap.codelab.domain.MemoRepository
 import com.sap.codelab.domain.model.Memo
+import com.sap.codelab.utils.Database
 
 /** Provides access to memos stored in the supplied Room database. */
-internal class RoomMemoRepository(database: Database) : IMemoRepository {
+internal class RoomMemoRepository(database: Database) : MemoRepository {
     private val dao = database.getMemoDao()
 
     override suspend fun saveMemo(memo: Memo): Long = dao.insert(memo)

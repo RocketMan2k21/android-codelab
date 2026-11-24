@@ -1,4 +1,4 @@
-package com.sap.codelab.data.location
+package com.sap.codelab.domain
 
 import com.sap.codelab.domain.model.Memo
 

@@ -32,13 +32,14 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
 import com.sap.codelab.R
-import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityHomeBinding
 import com.sap.codelab.databinding.DialogMonitoringOptionsBinding
 import com.sap.codelab.databinding.ItemMonitoringRequirementBinding
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
-import com.sap.codelab.repository.App
+import com.sap.codelab.App
+import com.sap.codelab.utils.extensions.empty
 import com.sap.codelab.view.create.CreateMemo
 import com.sap.codelab.view.detail.BUNDLE_MEMO_ID
 import com.sap.codelab.view.detail.ViewMemo
@@ -194,7 +195,7 @@ internal class Home : AppCompatActivity() {
         options.error.text = if (failures > 0) {
             resources.getQuantityString(R.plurals.monitoring_registration_error, failures, failures)
         } else {
-            ""
+            String.empty()
         }
     }
 

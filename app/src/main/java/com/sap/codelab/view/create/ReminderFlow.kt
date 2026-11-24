@@ -9,7 +9,11 @@ internal enum class ReminderRequirement {
     PRECISE_LOCATION,
     BACKGROUND_LOCATION,
     LOCATION_SERVICES,
+
+    /** The app needs the POST_NOTIFICATIONS runtime permission on Android 13+. */
     NOTIFICATION_PERMISSION,
+
+    /** Notifications are blocked for the whole app and must be enabled in system settings. */
     APP_NOTIFICATIONS,
     CHANNEL_NOTIFICATIONS,
 }

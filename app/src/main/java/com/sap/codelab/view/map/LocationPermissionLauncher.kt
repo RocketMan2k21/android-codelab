@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
-import com.sap.codelab.repository.App
+import com.sap.codelab.App
 
 internal class LocationPermissionLauncher(
     private val mode: Mode = Mode.FOREGROUND

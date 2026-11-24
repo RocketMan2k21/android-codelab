@@ -1,13 +1,13 @@
 package com.sap.codelab.domain.usecase
 
-import com.sap.codelab.data.location.GeofenceManager
+import com.sap.codelab.domain.GeofenceManager
 import com.sap.codelab.domain.model.Memo
-import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.domain.MemoRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 
 internal class CreateMemoUseCase(
-    private val repository: IMemoRepository,
+    private val repository: MemoRepository,
     private val geofenceManager: GeofenceManager
 ) {
     enum class ReminderRequest { NONE, REGISTER, SKIP }

@@ -7,16 +7,18 @@ import android.widget.Spinner
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sap.codelab.R
-import com.sap.codelab.data.location.GeofenceManager
+import com.sap.codelab.domain.GeofenceManager
 import com.sap.codelab.domain.model.Location
 import com.sap.codelab.domain.model.LocationPermission
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
-import com.sap.codelab.repository.IMemoRepository
+import com.sap.codelab.App
+import com.sap.codelab.domain.MemoRepository
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveResult
 import com.sap.codelab.view.create.CreateMemoViewModel.SaveState
 import kotlinx.coroutines.Dispatchers
@@ -369,7 +371,7 @@ class CreateMemoPermissionTest {
         val savedMemos = mutableListOf<Memo>()
         val registeredMemos = mutableListOf<Memo>()
 
-        private val repository = object : IMemoRepository {
+        private val repository = object : MemoRepository {
             override suspend fun saveMemo(memo: Memo): Long {
                 check(!failSave) { "Write failed" }
                 savedMemos.add(memo)
@@ -402,7 +404,12 @@ class CreateMemoPermissionTest {
         }
 
         fun newViewModel(savedState: SavedStateHandle = state) =
-            CreateMemoViewModel(savedState, CreateMemoUseCase(repository, geofenceManager), sdkInt)
+            CreateMemoViewModel(
+                savedState = savedState,
+                createMemo = CreateMemoUseCase(repository, geofenceManager),
+                monitoring = ApplicationProvider.getApplicationContext<App>().monitoringUseCase,
+                sdkInt = sdkInt,
+            )
 
         fun newViewModelWithLocation() = newViewModel().apply {
             selectLocation(Location(42.0, 19.0))

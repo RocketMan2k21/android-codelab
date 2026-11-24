@@ -11,12 +11,14 @@ import com.sap.codelab.domain.model.LocationUnavailableException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.tasks.await
 
+/** Gets a single device location from Google Play services. */
 internal class FusedLocationDataSource(
     context: Context,
     private val permissionSource: LocationPermissionSource
 ) : LocationDataSource {
     private val client = LocationServices.getFusedLocationProviderClient(context.applicationContext)
 
+    /** Accepts precise or approximate permission and cancels the request with the coroutine. */
     @OptIn(ExperimentalCoroutinesApi::class)
     override suspend fun getCurrentLocation(): Location {
         if (!permissionSource.getPermissionStatus().isLocationPermissionEnabled) {

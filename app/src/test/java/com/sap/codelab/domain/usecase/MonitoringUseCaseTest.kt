@@ -1,7 +1,7 @@
 package com.sap.codelab.domain.usecase
 
 import android.util.Log
-import com.sap.codelab.data.location.GeofenceNotificationManager
+import com.sap.codelab.data.geofence.GeofenceNotificationManager
 import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.domain.model.LocationPermission
 import com.sap.codelab.domain.model.NotificationAccess
