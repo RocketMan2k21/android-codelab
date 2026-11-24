@@ -7,6 +7,7 @@ import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.data.geofence.PlayServicesGeofenceManager
 import com.sap.codelab.utils.Database
 import com.sap.codelab.data.local.repository.RoomMemoRepository
+import com.sap.codelab.data.permission.NotificationPermissionRequestHistory
 import com.sap.codelab.domain.usecase.CreateMemoUseCase
 import com.sap.codelab.domain.usecase.MonitoringUseCase
 
@@ -15,6 +16,7 @@ import com.sap.codelab.domain.usecase.MonitoringUseCase
  */
 internal class App : Application() {
     val geofenceNotificationManager by lazy { GeofenceNotificationManager(this) }
+    val notificationPermissionRequestHistory by lazy { NotificationPermissionRequestHistory(this) }
     val locationPermissionSource by lazy { LocationPermissionSource(this) }
     private val geofenceManager by lazy { PlayServicesGeofenceManager(this) }
 

@@ -242,7 +242,12 @@ internal class CreateMemo : AppCompatActivity() {
                 ReminderSystemAction.OPEN_LOCATION_SERVICES -> openLocationServices.launch(
                     Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
                 )
-                ReminderSystemAction.REQUEST_NOTIFICATIONS -> requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                ReminderSystemAction.REQUEST_NOTIFICATIONS -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        app.notificationPermissionRequestHistory.markRequested()
+                        requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
                 ReminderSystemAction.OPEN_APP_NOTIFICATIONS -> openAppNotifications.launch(
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                 )

@@ -269,7 +269,14 @@ internal class Home : AppCompatActivity() {
             NotificationAccess.ENABLED -> Unit
             NotificationAccess.PERMISSION_REQUIRED -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    requestPermissionOrOpenSettings(Manifest.permission.POST_NOTIFICATIONS, notificationsSettings)
+                    val permission = Manifest.permission.POST_NOTIFICATIONS
+                    val history = (application as App).notificationPermissionRequestHistory
+                    if (!history.wasRequested() || shouldShowRequestPermissionRationale(permission)) {
+                        history.markRequested()
+                        runtimePermission.launch(permission)
+                    } else {
+                        openSettings(notificationsSettings)
+                    }
                 }
             }
             NotificationAccess.APP_DISABLED -> openSettings(notificationsSettings)
