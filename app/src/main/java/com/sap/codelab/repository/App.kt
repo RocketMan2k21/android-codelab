@@ -12,8 +12,9 @@ import com.sap.codelab.domain.usecase.MonitoringUseCase
  * Extension of the Android Application class.
  */
 internal class App : Application() {
-    lateinit var geofenceNotificationManager: GeofenceNotificationManager
-        private set
+    val geofenceNotificationManager by lazy { GeofenceNotificationManager(this) }
+    val locationPermissionSource by lazy { LocationPermissionSource(this) }
+    private val geofenceManager by lazy { PlayServicesGeofenceManager(this) }
 
     val memoRepository by lazy {
         val database = Room.databaseBuilder(this, Database::class.java, "codelab")
@@ -23,20 +24,19 @@ internal class App : Application() {
     }
 
     val createMemoUseCase by lazy {
-        CreateMemoUseCase(memoRepository, PlayServicesGeofenceManager(this))
+        CreateMemoUseCase(memoRepository, geofenceManager)
     }
 
     val monitoringUseCase by lazy {
         MonitoringUseCase(
             repository = memoRepository,
-            geofenceManager = PlayServicesGeofenceManager(this),
-            locationPermissions = LocationPermissionSource(this),
+            geofenceManager = geofenceManager,
+            locationPermissions = locationPermissionSource,
             notifications = geofenceNotificationManager
         )
     }
 
     override fun onCreate() {
         super.onCreate()
-        geofenceNotificationManager = GeofenceNotificationManager(this)
     }
 }

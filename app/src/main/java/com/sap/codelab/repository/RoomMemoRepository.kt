@@ -13,7 +13,8 @@ internal class RoomMemoRepository(database: Database) : IMemoRepository {
 
     override suspend fun getOpen(): List<Memo> = dao.getOpen()
 
-    suspend fun getOpenByIds(memoIds: List<Long>): List<Memo> = dao.getOpenByIds(memoIds)
+    suspend fun getOpenByIds(memoIds: List<Long>): List<Memo> =
+        dao.getOpenByIds(memoIds)
 
     override suspend fun getAll(): List<Memo> = dao.getAll()
 

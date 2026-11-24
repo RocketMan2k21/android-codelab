@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp">
+
+        <include
+            android:id="@+id/foreground_location"
+            layout="@layout/item_monitoring_requirement" />
+
+        <include
+            android:id="@+id/background_location"
+            layout="@layout/item_monitoring_requirement" />
+
+        <include
+            android:id="@+id/location_services"
+            layout="@layout/item_monitoring_requirement" />
+
+        <include
+            android:id="@+id/notifications"
+            layout="@layout/item_monitoring_requirement" />
+
+        <TextView
+            android:id="@+id/error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityLiveRegion="polite"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</ScrollView>

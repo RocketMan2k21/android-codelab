@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
-import com.sap.codelab.data.location.LocationPermissionSource
+import com.sap.codelab.repository.App
 
 internal class LocationPermissionLauncher(
     private val mode: Mode = Mode.FOREGROUND
@@ -27,7 +27,7 @@ internal class LocationPermissionLauncher(
 
     override fun createIntent(context: Context, input: Unit): Intent {
         if (mode == Mode.FOREGROUND) {
-            LocationPermissionSource(context).markPermissionRequested()
+            (context.applicationContext as App).locationPermissionSource.markPermissionRequested()
         }
         return contract.createIntent(context, permissions)
     }

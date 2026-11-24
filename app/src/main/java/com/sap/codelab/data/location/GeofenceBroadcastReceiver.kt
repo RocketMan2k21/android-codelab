@@ -30,7 +30,7 @@ internal class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
         val app = context.applicationContext as App
         val pendingResult = goAsync() ?: return
-        ScopeProvider.newScope(Dispatchers.Default).launch {
+        ScopeProvider.newScope().launch {
             try {
                 app.memoRepository.getOpenByIds(memoIds).forEach { memo ->
                     app.geofenceNotificationManager.show(memo)

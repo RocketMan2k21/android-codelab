@@ -2,32 +2,20 @@ package com.sap.codelab.view.home
 
 import android.Manifest
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
-import android.widget.CheckBox
-import android.widget.CompoundButton
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.AppCompatButton
-import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.graphics.ColorUtils
+import androidx.annotation.StringRes
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -36,20 +24,18 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.ListAdapter
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
-import com.google.android.material.color.MaterialColors
 import com.sap.codelab.R
 import com.sap.codelab.data.location.GeofenceNotificationManager
 import com.sap.codelab.databinding.ActivityHomeBinding
-import com.sap.codelab.databinding.RecyclerviewMemoBinding
+import com.sap.codelab.databinding.DialogMonitoringOptionsBinding
+import com.sap.codelab.databinding.ItemMonitoringRequirementBinding
 import com.sap.codelab.domain.model.Memo
 import com.sap.codelab.domain.model.NotificationAccess
 import com.sap.codelab.repository.App
@@ -70,9 +56,8 @@ internal class Home : AppCompatActivity() {
     private lateinit var model: HomeViewModel
     private lateinit var menuItemShowAll: MenuItem
     private lateinit var menuItemShowOpen: MenuItem
-    private lateinit var monitoringBanner: LinearLayout
     private var monitoringDialog: AlertDialog? = null
-    private var monitoringOptions: MonitoringOptions? = null
+    private var monitoringOptions: DialogMonitoringOptionsBinding? = null
     private var restoreMonitoringDialog = false
     private val requestedPermissions = mutableSetOf<String>()
 
@@ -135,46 +120,8 @@ internal class Home : AppCompatActivity() {
     }
 
     private fun setupMonitoring() {
-        val spacing = (8 * resources.displayMetrics.density).toInt()
-        val errorColor = MaterialColors.getColor(this, androidx.appcompat.R.attr.colorError, 0xFFB00020.toInt())
-        monitoringBanner = LinearLayout(this).apply {
-            id = View.generateViewId()
-            isVisible = false
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPaddingRelative(spacing * 2, 0, spacing, 0)
-            background = GradientDrawable().apply {
-                setColor(ColorUtils.setAlphaComponent(errorColor, 32))
-                cornerRadius = spacing.toFloat()
-            }
-            val label = TextView(context).apply {
-                text = "Monitoring inactive"
-                setTextAppearance(android.R.style.TextAppearance_Medium)
-                setTextColor(errorColor)
-                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-            }
-            val fix = AppCompatButton(context, null, androidx.appcompat.R.attr.borderlessButtonStyle).apply {
-                text = "Fix"
-                setTextColor(errorColor)
-                contentDescription = "Fix monitoring"
-                setOnClickListener { showMonitoringSettings() }
-            }
-            addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(fix, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }
-        val content = binding.contentHome
-        content.root.addView(monitoringBanner, 0)
-        ConstraintSet().apply {
-            clone(content.root)
-            constrainWidth(monitoringBanner.id, ConstraintSet.MATCH_CONSTRAINT)
-            constrainHeight(monitoringBanner.id, ConstraintSet.WRAP_CONTENT)
-            connect(monitoringBanner.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, spacing * 2)
-            connect(monitoringBanner.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, spacing * 2)
-            connect(monitoringBanner.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, spacing)
-            constrainHeight(content.recyclerView.id, ConstraintSet.MATCH_CONSTRAINT)
-            connect(content.recyclerView.id, ConstraintSet.TOP, monitoringBanner.id, ConstraintSet.BOTTOM, spacing)
-            setGoneMargin(content.recyclerView.id, ConstraintSet.TOP, 0)
-            applyTo(content.root)
+        binding.contentHome.fixMonitoring.setOnClickListener {
+            showMonitoringSettings()
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -189,20 +136,19 @@ internal class Home : AppCompatActivity() {
     }
 
     private fun showMonitoringSettings() {
-        if (monitoringDialog != null || !monitoringBanner.isVisible) return
+        if (monitoringDialog != null || !binding.contentHome.monitoringBanner.isVisible) return
         val builder = AlertDialog.Builder(this)
-        val options = MonitoringOptions(builder.context).apply {
-            foreground.fix.setOnClickListener { fixForegroundLocation() }
-            background.fix.setOnClickListener { fixBackgroundLocation() }
-            services.fix.setOnClickListener { fixLocationServices() }
-            notifications.fix.setOnClickListener { fixNotifications() }
+        val options = DialogMonitoringOptionsBinding.inflate(LayoutInflater.from(builder.context)).apply {
+            foregroundLocation.configure(R.string.monitoring_foreground_location, ::fixForegroundLocation)
+            backgroundLocation.configure(R.string.monitoring_background_location, ::fixBackgroundLocation)
+            locationServices.configure(R.string.monitoring_location_services, ::fixLocationServices)
+            notifications.configure(R.string.monitoring_notification_permission, ::fixNotifications)
         }
-        val scroll = ScrollView(builder.context).apply { addView(options) }
         val dialog = builder
-            .setTitle("Monitoring settings")
-            .setView(scroll)
+            .setTitle(R.string.monitoring_settings_title)
+            .setView(options.root)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton("Activate monitoring", null)
+            .setPositiveButton(R.string.action_activate_monitoring, null)
             .create()
         monitoringOptions = options
         monitoringDialog = dialog
@@ -215,10 +161,17 @@ internal class Home : AppCompatActivity() {
         renderMonitoring(model.monitoringState.value)
     }
 
+    private fun ItemMonitoringRequirementBinding.configure(@StringRes label: Int, onFix: () -> Unit) {
+        title.setText(label)
+        fix.contentDescription = getString(R.string.monitoring_fix_requirement_description, getString(label))
+        fix.setOnClickListener { onFix() }
+    }
+
     private fun renderMonitoring(state: HomeViewModel.MonitoringState) {
         val currentStatus = state.status ?: return
-        monitoringBanner.isVisible = currentStatus.isVisible && !currentStatus.isActive
-        if (!monitoringBanner.isVisible) {
+        val showBanner = currentStatus.isVisible && !currentStatus.isActive
+        binding.contentHome.monitoringBanner.isVisible = showBanner
+        if (!showBanner) {
             restoreMonitoringDialog = false
             monitoringDialog?.dismiss()
             return
@@ -230,19 +183,24 @@ internal class Home : AppCompatActivity() {
         }
         val options = monitoringOptions ?: return
         val requirements = currentStatus.requirements
-        options.foreground.render(requirements.location.isPreciseLocationEnabled)
-        options.background.render(requirements.location.isBackgroundLocationEnabled)
-        options.services.render(requirements.locationServicesEnabled)
-        options.notifications.render(requirements.notificationAccess == NotificationAccess.ENABLED)
+        options.foregroundLocation.renderStatus(requirements.location.isPreciseLocationEnabled)
+        options.backgroundLocation.renderStatus(requirements.location.isBackgroundLocationEnabled)
+        options.locationServices.renderStatus(requirements.locationServicesEnabled)
+        options.notifications.renderStatus(requirements.notificationAccess == NotificationAccess.ENABLED)
         monitoringDialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
             currentStatus.canActivate && !state.isActivating
         val failures = state.failedIds.size
         options.error.isVisible = failures > 0
-        options.error.text = when (failures) {
-            0 -> ""
-            1 -> "Couldn’t register one reminder."
-            else -> "Couldn’t register $failures reminders."
+        options.error.text = if (failures > 0) {
+            resources.getQuantityString(R.plurals.monitoring_registration_error, failures, failures)
+        } else {
+            ""
         }
+    }
+
+    private fun ItemMonitoringRequirementBinding.renderStatus(enabled: Boolean) {
+        status.setText(if (enabled) R.string.monitoring_status_on else R.string.monitoring_status_off)
+        fix.isInvisible = enabled
     }
 
     private fun fixForegroundLocation() {
@@ -253,7 +211,7 @@ internal class Home : AppCompatActivity() {
             (location.isLocationPermissionEnabled && permission !in requestedPermissions)
         if (canRequest) {
             requestedPermissions.add(permission)
-            foregroundLocation.launch(Unit)
+            this@Home.foregroundLocation.launch(Unit)
         } else {
             openSettings(appDetailsSettings())
         }
@@ -415,66 +373,6 @@ internal class Home : AppCompatActivity() {
             }
 
             else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private class MonitoringOptions(context: Context) : LinearLayout(context) {
-        private val padding = (16 * resources.displayMetrics.density).toInt()
-        private val spacing = padding / 2
-
-        init {
-            orientation = VERTICAL
-            setPadding(padding, spacing, padding, spacing)
-        }
-
-        val foreground = requirement("Foreground location (precise)")
-        val background = requirement("Background location")
-        val services = requirement("Device Location Services")
-        val notifications = requirement("Notification permission")
-        val error = TextView(context).apply {
-            accessibilityLiveRegion = ACCESSIBILITY_LIVE_REGION_POLITE
-        }.also(::addView)
-
-        private fun requirement(label: String): RequirementRow {
-            val row = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
-            val title = TextView(context).apply { text = label }
-            val state = TextView(context)
-            val fix = AppCompatButton(context, null, androidx.appcompat.R.attr.borderlessButtonStyle).apply {
-                text = "Fix"
-                contentDescription = "Fix $label"
-            }
-            row.addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(state, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                marginStart = spacing
-            })
-            row.addView(fix, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                marginStart = spacing
-            })
-            addView(row)
-            return RequirementRow(state, fix)
-        }
-    }
-
-    private class RequirementRow(private val state: TextView, val fix: AppCompatButton) {
-        fun render(enabled: Boolean) {
-            state.text = if (enabled) "On" else "Off"
-            fix.isInvisible = enabled
-        }
-    }
-
-    private class HomeMemoAdapter(
-        private val onMemoClick: View.OnClickListener,
-        private val onCompletionChange: CompoundButton.OnCheckedChangeListener
-    ) : ListAdapter<Memo, MemoViewHolder>(object : DiffUtil.ItemCallback<Memo>() {
-        override fun areItemsTheSame(oldItem: Memo, newItem: Memo) = oldItem.id == newItem.id
-        override fun areContentsTheSame(oldItem: Memo, newItem: Memo) = oldItem == newItem
-    }) {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            MemoViewHolder(RecyclerviewMemoBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-
-        override fun onBindViewHolder(holder: MemoViewHolder, position: Int) {
-            holder.update(getItem(position), onMemoClick, onCompletionChange)
-            holder.itemView.findViewById<CheckBox>(R.id.checkBox).isEnabled = true
         }
     }
 

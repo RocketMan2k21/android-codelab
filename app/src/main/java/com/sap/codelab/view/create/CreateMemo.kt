@@ -3,7 +3,6 @@ package com.sap.codelab.view.create
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -17,7 +16,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.location.LocationManagerCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.Lifecycle
@@ -29,7 +27,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sap.codelab.R
 import com.sap.codelab.data.location.GeofenceNotificationManager
-import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.databinding.ActivityCreateMemoBinding
 import com.sap.codelab.domain.model.ReminderReadiness
 import com.sap.codelab.repository.App
@@ -46,7 +43,8 @@ internal class CreateMemo : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateMemoBinding
     private lateinit var model: CreateMemoViewModel
-    private val permissionSource by lazy { LocationPermissionSource(this) }
+    private val app get() = application as App
+    private val permissionSource get() = app.locationPermissionSource
 
     private val selectLocation = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -85,7 +83,7 @@ internal class CreateMemo : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         val factory = viewModelFactory {
             initializer {
-                CreateMemoViewModel(createSavedStateHandle(), (application as App).createMemoUseCase)
+                CreateMemoViewModel(createSavedStateHandle(), app.createMemoUseCase)
             }
         }
         model = ViewModelProvider(this, factory)[CreateMemoViewModel::class.java]
@@ -266,9 +264,8 @@ internal class CreateMemo : AppCompatActivity() {
 
     private fun reminderReadiness() = ReminderReadiness(
         location = permissionSource.getPermissionStatus(),
-        locationServicesEnabled = getSystemService(LocationManager::class.java)
-            ?.let(LocationManagerCompat::isLocationEnabled) == true,
-        notificationAccess = (application as App).geofenceNotificationManager.getAccess()
+        locationServicesEnabled = permissionSource.isLocationEnabled(),
+        notificationAccess = app.geofenceNotificationManager.getAccess()
     )
 
     private fun showSelectedLocation() {

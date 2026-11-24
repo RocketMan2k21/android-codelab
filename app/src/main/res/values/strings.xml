@@ -7,6 +7,22 @@
     <string name="memo_text">Text</string>
     <string name="action_save">Save</string>
     <string name="action_back">Back</string>
+    <string name="action_fix">Fix</string>
+    <string name="monitoring_inactive">Monitoring inactive</string>
+    <string name="monitoring_fix_description">Fix monitoring</string>
+    <string name="monitoring_settings_title">Monitoring settings</string>
+    <string name="action_activate_monitoring">Activate monitoring</string>
+    <string name="monitoring_foreground_location">Foreground location (precise)</string>
+    <string name="monitoring_background_location">Background location</string>
+    <string name="monitoring_location_services">Device Location Services</string>
+    <string name="monitoring_notification_permission">Notification permission</string>
+    <string name="monitoring_fix_requirement_description">Fix %1$s</string>
+    <string name="monitoring_status_on">On</string>
+    <string name="monitoring_status_off">Off</string>
+    <plurals name="monitoring_registration_error">
+        <item quantity="one">Couldn’t register one reminder.</item>
+        <item quantity="other">Couldn’t register %d reminders.</item>
+    </plurals>
     <string name="action_mark_done">Mark done</string>
     <string name="memo_done">Done</string>
     <string name="memo_coordinates">Coordinates</string>

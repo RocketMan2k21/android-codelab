@@ -16,16 +16,16 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.sap.codelab.R
 import com.sap.codelab.data.location.FusedLocationDataSource
-import com.sap.codelab.data.location.LocationPermissionSource
 import com.sap.codelab.databinding.ActivityMapBinding
 import com.sap.codelab.domain.model.Location
+import com.sap.codelab.repository.App
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 internal class MapActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMapBinding
-    private val permissionSource by lazy { LocationPermissionSource(this) }
+    private val permissionSource get() = (application as App).locationPermissionSource
     private val locationSource by lazy { FusedLocationDataSource(this, permissionSource) }
     private var map: GoogleMap? = null
     private var shouldCenterOnDevice = false
