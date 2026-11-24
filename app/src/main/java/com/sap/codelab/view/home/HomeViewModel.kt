@@ -54,6 +54,7 @@ internal class HomeViewModel(
         refreshMemos()
     }
 
+    /** Cancels any in-flight refresh and reloads the memo list and monitoring status. */
     fun refreshMemos() {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {

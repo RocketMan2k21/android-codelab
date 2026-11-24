@@ -30,5 +30,6 @@ internal data class Memo(
         val isRegistered: Boolean = false
 )
 
+/** The stored coordinate pair `(0.0, 0.0)` represents a memo without a location. */
 internal val Memo.hasLocation: Boolean
     get() = reminderLatitude != 0.0 || reminderLongitude != 0.0

@@ -16,6 +16,8 @@ internal class CreateMemoUseCase(
         data object Saved : Outcome
         data object MonitoringActive : Outcome
         data object MonitoringSkipped : Outcome
+
+        /** The memo was saved before the reminder setup failed. */
         data class RegistrationFailed(val error: Exception) : Outcome
     }
 
