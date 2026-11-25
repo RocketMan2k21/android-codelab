@@ -35,7 +35,7 @@ internal class ViewMemoViewModel(
     }
 
     fun markDone() {
-        val current = state.value // TODO: USE update{ }
+        val current = state.value
         val memo = current.memo ?: return
         if (memo.isDone || current.isCompleting) return
         _state.value = current.copy(isCompleting = true)
