@@ -65,6 +65,22 @@ Play services → GeofenceBroadcastReceiver → GeofenceNotificationManager
 2. `PlayServicesGeofenceManager` implements `GeofenceManager` and registers a 200 m entry geofence keyed by the saved memo ID. Play services delivers matching transitions to a manifest-registered `GeofenceBroadcastReceiver`, including a possible initial entry if the device is already inside the zone.
 3. The receiver uses the IDs to look up open memos in Room. `GeofenceNotificationManager` checks the Android 13+ runtime grant and the app and channel settings before posting to the **Location reminders** channel. Each notification includes the memo title, the first 140 characters of its text, and an icon. Tapping it opens the matching memo in `ViewMemo`.
 
+## Running tests
+
+Run these commands from the repository root with JDK 21 and Android SDK 36 configured. On Windows, use `gradlew.bat` in place of `./gradlew`.
+
+**Local unit tests** cover memo creation and monitoring. They run on the JVM without an emulator or device.
+
+```sh
+./gradlew :app:testDebugUnitTest
+```
+
+**Instrumented tests** cover the memo permission flow, activity recreation, and Room persistence. Start an Android emulator or connect a device running Android 8.1 (API 27) or later with USB debugging enabled.
+
+```sh
+./gradlew :app:connectedDebugAndroidTest
+```
+
 ## Limitations & Future Improvements
 
 Geofence events are asynchronous. Crossing the 200 m boundary does not guarantee an immediate notification, especially in the background.
