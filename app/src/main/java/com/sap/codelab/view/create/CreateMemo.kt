@@ -89,18 +89,26 @@ internal class CreateMemo : AppCompatActivity() {
             }
         }
         model = ViewModelProvider(this, factory)[CreateMemoViewModel::class.java]
-        supportFragmentManager.setFragmentResultListener(ReminderRequirementDialog.RESULT_KEY, this) { _, result ->
-            val requirement = ReminderRequirementDialog.readRequirement(result) ?: return@setFragmentResultListener
-            val action = RationaleAction.entries.firstOrNull {
-                it.name == result.getString(ReminderRequirementDialog.ACTION_KEY)
-            } ?: return@setFragmentResultListener
-            model.onRationaleResult(requirement, action)
-        }
+        setupDialogResultListener()
         bindForm()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 model.saveState.collect(::renderSaveState)
             }
+        }
+    }
+
+    private fun setupDialogResultListener() {
+        supportFragmentManager.setFragmentResultListener(
+            ReminderRequirementDialog.RESULT_KEY,
+            this
+        ) { _, result ->
+            val requirement = ReminderRequirementDialog.readRequirement(result)
+                ?: return@setFragmentResultListener
+            val action = RationaleAction.entries.firstOrNull {
+                it.name == result.getString(ReminderRequirementDialog.ACTION_KEY)
+            } ?: return@setFragmentResultListener
+            model.onRationaleResult(requirement, action)
         }
     }
 

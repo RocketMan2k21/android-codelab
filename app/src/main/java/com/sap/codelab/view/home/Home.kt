@@ -257,16 +257,7 @@ internal class Home : AppCompatActivity() {
         when (model.readRequirements().notificationAccess) {
             NotificationAccess.ENABLED -> Unit
             NotificationAccess.PERMISSION_REQUIRED -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val permission = Manifest.permission.POST_NOTIFICATIONS
-                    val history = (application as App).notificationPermissionRequestHistory
-                    if (!history.wasRequested() || shouldShowRequestPermissionRationale(permission)) {
-                        history.markRequested()
-                        runtimePermission.launch(permission)
-                    } else {
-                        openSettings(notificationsSettings)
-                    }
-                }
+                requestPermission(notificationsSettings)
             }
             NotificationAccess.APP_DISABLED -> openSettings(notificationsSettings)
             NotificationAccess.CHANNEL_DISABLED -> openSettings(
@@ -274,6 +265,19 @@ internal class Home : AppCompatActivity() {
                     .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
                     .putExtra(Settings.EXTRA_CHANNEL_ID, GeofenceNotificationManager.CHANNEL_ID)
             )
+        }
+    }
+
+    private fun requestPermission(notificationsSettings: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            val history = (application as App).notificationPermissionRequestHistory
+            if (!history.wasRequested() || shouldShowRequestPermissionRationale(permission)) {
+                history.markRequested()
+                runtimePermission.launch(permission)
+            } else {
+                openSettings(notificationsSettings)
+            }
         }
     }
 
