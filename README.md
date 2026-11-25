@@ -37,14 +37,33 @@ The app targets Android 13 (API 33) to control the runtime notification permissi
 
 ## Architecture and dependency injection
 
-- Activities render XML layouts with View Binding. ViewModels coordinate UI state and call use cases for memo creation and monitoring.
-- `App` creates shared dependencies lazily. ViewModel factories use manual constructor injection. The Room repository, geofence manager, fused location source, and location settings checker expose interfaces.
+The initial version provided Room-backed memo creation, listing, and viewing. The reminder feature adds map selection, permission checks, and geofence delivery to that flow. Activities render XML layouts with View Binding and launch Android permission and settings screens. `App` creates the shared Room repository, reminder services, and use cases lazily. ViewModel factories pass dependencies through constructors.
 
-## Geofence reminder flow
+```text
+Activities → ViewModels → Use cases ─┬→ MemoRepository → Room
+                                     └→ GeofenceManager → Play services
 
-1. Select a point on the map and save the memo. The app checks reminder prerequisites and writes the memo to Room before attempting registration.
-2. When the prerequisites are met, Play services registers a 200 m geofence keyed by the memo ID. It reports entry events and can also report an initial entry if the device is already inside the zone.
-3. `GeofenceBroadcastReceiver` looks up the matching open memo. The notification shows its title, the first 140 characters of its text, and an icon. Tapping it opens the memo.
+Play services → GeofenceBroadcastReceiver → GeofenceNotificationManager
+                                            └─ notification tap → ViewMemo
+```
+
+### ViewModel changes
+
+- `CreateMemoViewModel` backs up the `MemoDraft`, including the selected point, in `SavedStateHandle`. It exposes save and prerequisite steps as a `StateFlow` and delegates the write to `CreateMemoUseCase`.
+- `HomeViewModel` exposes the memo list and the monitoring banner state. It refreshes both when Home resumes and delegates pending registrations and completion changes to `MonitoringUseCase`.
+- `ViewMemoViewModel` loads the memo by ID, tracks completion progress, and delegates **Mark done** to the same use case. Completing a memo from either screen saves its completion state and removes its geofence if it has a location.
+
+### Location and permissions
+
+- `MapActivity` returns the map’s center point when the user confirms. `FusedLocationDataSource` wraps a one-time Play services location lookup to center the map with either precise or approximate foreground access.
+- `LocationPermissionSource` reads location grants and the device-wide Location switch. `LocationPermissionLauncher` wraps foreground and background permission requests, and `NotificationPermissionRequestHistory` records whether the app has requested notification permission so the UI can choose between a prompt and Settings.
+- `ReminderFlow` checks precise foreground location, background access, device Location, then notification access. Android 10 requests background access at runtime, Android 11 and later use app settings, and earlier versions need only the foreground grant. `ReminderRequirementDialog` explains missing requirements and lets the user save without a reminder. Home offers **Fix** actions for pending reminders and uses `PlayServicesLocationSettingsChecker` to check whether Play services can resolve the device’s location settings.
+
+### Geofence reminder flow
+
+1. `CreateMemoUseCase` saves the memo to Room first. If the user skips reminder setup or registration fails, the memo stays saved. `MonitoringUseCase` can register pending reminders for open memos once the requirements are met. Both record successful registrations through `RoomMemoRepository`.
+2. `PlayServicesGeofenceManager` implements `GeofenceManager` and registers a 200 m entry geofence keyed by the saved memo ID. Play services delivers matching transitions to a manifest-registered `GeofenceBroadcastReceiver`, including a possible initial entry if the device is already inside the zone.
+3. The receiver uses the IDs to look up open memos in Room. `GeofenceNotificationManager` checks the Android 13+ runtime grant and the app and channel settings before posting to the **Location reminders** channel. Each notification includes the memo title, the first 140 characters of its text, and an icon. Tapping it opens the matching memo in `ViewMemo`.
 
 ## Limitations & Future Improvements
 
