@@ -1,4 +1,4 @@
-# android-codelab
+# android-codelab (UPDATED, PLEASE READ)
 Android project that serves as a base for code challenges implemented by applicants.
 The base is written in kotlin. 
 
